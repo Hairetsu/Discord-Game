@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { HEIST_MAX_STEAL, ROB_MAX_STEAL } from "../src/game/constants.js";
-import { SECURITY_BY_ID } from "../src/game/constants.js";
+import { NEW_PLAYER_SHIELD_MS, SECURITY_BY_ID } from "../src/game/constants.js";
 import { SequenceRandomSource } from "../src/game/random.js";
 import { createTestServices, LcgRandomSource } from "./helpers.js";
 
 describe("robbery service", () => {
+  it("gives new players exactly one minute of robbery protection", () => {
+    const { repo } = createTestServices();
+    const player = repo.ensurePlayer("guild", "target", 1000);
+
+    expect(player.robberyShieldUntil).toBe(1000 + NEW_PLAYER_SHIELD_MS);
+    expect(NEW_PLAYER_SHIELD_MS).toBe(60_000);
+  });
+
   it("steals bounded wallet cash on a successful robbery", () => {
     const { repo, robbery } = createTestServices(new SequenceRandomSource([0, 0]));
     const robber = repo.ensurePlayer("guild", "robber", 1000);

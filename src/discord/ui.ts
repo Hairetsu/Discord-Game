@@ -6,7 +6,14 @@ import {
   type APIEmbedField
 } from "discord.js";
 import type { LeaderboardEntry, PlayerRecord } from "../db/repository.js";
-import { NOIR, SECURITY_ITEMS, SECURITY_SLOTS, type SecurityItem, type SecuritySlot } from "../game/constants.js";
+import {
+  DROP_LIFETIME_MS,
+  NOIR,
+  SECURITY_ITEMS,
+  SECURITY_SLOTS,
+  type SecurityItem,
+  type SecuritySlot
+} from "../game/constants.js";
 import { formatDollars, remainingSeconds } from "../game/time.js";
 import type { AttackResult } from "../services/robbery.js";
 
@@ -94,10 +101,13 @@ export function buyEmbed(item: SecurityItem, player: PlayerRecord): EmbedBuilder
 }
 
 export function dropEmbed(amount: number): EmbedBuilder {
+  const lifetimeSeconds = Math.floor(DROP_LIFETIME_MS / 1000);
   return new EmbedBuilder()
     .setColor(NOIR.green)
     .setTitle("Unmarked Bag On The Floor")
-    .setDescription(`First hand on the clasp pockets **${formatDollars(amount)}**. The bag vanishes in 90 seconds.`);
+    .setDescription(
+      `First hand on the clasp pockets **${formatDollars(amount)}**. The bag vanishes in ${lifetimeSeconds} seconds.`
+    );
 }
 
 export function claimedDropEmbed(amount: number, userId: string): EmbedBuilder {

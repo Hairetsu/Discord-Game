@@ -3,6 +3,7 @@ import { MessageFlags } from "discord.js";
 import type { HeistRepository } from "../db/repository.js";
 import { ACTIVE_CHANNEL_WINDOW_MS } from "../game/constants.js";
 import type { DropService } from "../services/drops.js";
+import { scheduleMessageDeletion } from "./cleanup.js";
 import { claimedDropEmbed, dropButton, dropEmbed } from "./ui.js";
 
 export class DropDispatcher {
@@ -67,6 +68,9 @@ export class DropDispatcher {
       embeds: [claimedDropEmbed(result.drop.amount, interaction.user.id)],
       components: [dropButton(dropId, true)]
     });
+    if (interaction.message) {
+      scheduleMessageDeletion(interaction.message);
+    }
     return true;
   }
 

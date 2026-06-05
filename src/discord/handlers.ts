@@ -3,7 +3,8 @@ import {
   Events,
   MessageFlags,
   PermissionFlagsBits,
-  type ChatInputCommandInteraction
+  type ChatInputCommandInteraction,
+  type InteractionReplyOptions
 } from "discord.js";
 import type { HeistRepository } from "../db/repository.js";
 import { formatDollars, nowMs } from "../game/time.js";
@@ -12,6 +13,7 @@ import { containsEmojiOrCustomEmote } from "../services/activity.js";
 import type { EconomyService } from "../services/economy.js";
 import type { RobberyService } from "../services/robbery.js";
 import type { SecurityService } from "../services/security.js";
+import { scheduleReplyDeletion } from "./cleanup.js";
 import type { DropDispatcher } from "./drop-dispatcher.js";
 import {
   attackEmbed,
@@ -134,7 +136,7 @@ async function handleCommand(
         });
         return;
       }
-      await interaction.reply({ embeds: [moneyMoveEmbed("Cash Deposited", result.amount, result.player)] });
+      await replyPublic(interaction, { embeds: [moneyMoveEmbed("Cash Deposited", result.amount, result.player)] });
       return;
     }
 
@@ -149,12 +151,12 @@ async function handleCommand(
         });
         return;
       }
-      await interaction.reply({ embeds: [moneyMoveEmbed("Cash Withdrawn", result.amount, result.player)] });
+      await replyPublic(interaction, { embeds: [moneyMoveEmbed("Cash Withdrawn", result.amount, result.player)] });
       return;
     }
 
     case "leaderboard": {
-      await interaction.reply({ embeds: [leaderboardEmbed(services.economy.leaderboard(guildId, now))] });
+      await replyPublic(interaction, { embeds: [leaderboardEmbed(services.economy.leaderboard(guildId, now))] });
       return;
     }
 
@@ -216,7 +218,7 @@ async function handleAttack(
     kind === "rob"
       ? services.robbery.rob(interaction.guildId!, interaction.user.id, target.id, now)
       : services.robbery.heist(interaction.guildId!, interaction.user.id, target.id, now);
-  await interaction.reply({ embeds: [attackEmbed(result)] });
+  await replyPublic(interaction, { embeds: [attackEmbed(result)] });
 }
 
 async function handleAdmin(
@@ -336,4 +338,12 @@ function buyFailureText(reason: "unknown_item" | "already_owned" | "insufficient
     case "insufficient_wallet":
       return "Your wallet is short for that security buy.";
   }
+}
+
+async function replyPublic(
+  interaction: ChatInputCommandInteraction,
+  options: InteractionReplyOptions
+): Promise<void> {
+  await interaction.reply(options);
+  scheduleReplyDeletion(interaction);
 }

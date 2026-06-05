@@ -1,13 +1,14 @@
 export const STARTING_WALLET = 250;
-export const NEW_PLAYER_SHIELD_MS = 24 * 60 * 60 * 1000;
+export const NEW_PLAYER_SHIELD_MS = 60 * 1000;
+export const BOT_MESSAGE_TTL_MS = 10 * 1000;
 
 export const DROP_MIN = 25;
 export const DROP_MAX = 250;
 export const DROP_JACKPOT = 1000;
 export const DROP_JACKPOT_CHANCE = 0.01;
 export const DROP_LIFETIME_MS = 90 * 1000;
-export const DROP_INTERVAL_MIN_MS = 20 * 60 * 1000;
-export const DROP_INTERVAL_MAX_MS = 45 * 60 * 1000;
+export const DROP_INTERVAL_MIN_MS = 10 * 60 * 1000;
+export const DROP_INTERVAL_MAX_MS = 20 * 60 * 1000;
 export const ACTIVE_CHANNEL_WINDOW_MS = 15 * 60 * 1000;
 
 export const DAILY_INTEREST_RATE = 0.01;
