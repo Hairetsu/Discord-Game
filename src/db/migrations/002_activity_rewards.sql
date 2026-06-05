@@ -1,0 +1,2 @@
+ALTER TABLE players ADD COLUMN last_chat_reward_at INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN last_emote_reward_at INTEGER NOT NULL DEFAULT 0;

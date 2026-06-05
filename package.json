@@ -1,0 +1,31 @@
+{
+  "name": "discord-heist-bank-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A seasonal Discord heist economy bot with money drops, banking interest, security loadouts, and capped robberies.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "register": "tsx src/register-commands.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@discordjs/rest": "^2.6.0",
+    "better-sqlite3": "^12.10.0",
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.10.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
