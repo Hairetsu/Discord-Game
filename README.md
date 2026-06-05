@@ -40,7 +40,7 @@ cp fly.toml.example fly.toml
 perl -0pi -e "s/your-fly-app-name/$ENV{APP_NAME}/; s/primary_region = \"iad\"/primary_region = \"$ENV{REGION}\"/" fly.toml
 
 fly apps create "$APP_NAME"
-fly volumes create heist_data --app "$APP_NAME" --region "$REGION" --size 1
+fly volumes create data --app "$APP_NAME" --region "$REGION" --size 1
 ```
 
 Set secrets before deploying so the bot can start successfully:
@@ -62,22 +62,11 @@ fly ssh console --app "$APP_NAME" -C "npm run register:prod"
 fly logs --app "$APP_NAME"
 ```
 
-## GitHub CI/CD
+## GitHub CI and Fly CD
 
-The `.github/workflows/ci-cd.yml` workflow runs typecheck, tests, and a production build for pull requests. Pushes to `master` also deploy to Fly.
+The `.github/workflows/ci-cd.yml` workflow runs typecheck, tests, and a production build for pull requests and pushes to `master`.
 
-Before the deploy job can run, add these in GitHub:
-
-- Repository variable: `FLY_APP_NAME` with your Fly app name.
-- Repository secret: `FLY_API_TOKEN` with an app-scoped Fly deploy token.
-
-Create the deploy token locally or from the Fly dashboard:
-
-```bash
-fly tokens create deploy --app "$APP_NAME" --name "github-actions" --expiry 8760h
-```
-
-Keep runtime secrets in Fly, not GitHub Actions:
+If you linked this repo in the Fly web UI, keep runtime secrets in Fly and let Fly deploy from the connected repository:
 
 ```bash
 fly secrets set --app "$APP_NAME" DISCORD_TOKEN="your-discord-token"

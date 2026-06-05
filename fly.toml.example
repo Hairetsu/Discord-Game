@@ -9,7 +9,7 @@ primary_region = "iad"
   DATABASE_PATH = "/data/heist-bank.sqlite"
 
 [[mounts]]
-  source = "heist_data"
+  source = "data"
   destination = "/data"
 
 [[vm]]
