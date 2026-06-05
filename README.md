@@ -62,11 +62,22 @@ fly ssh console --app "$APP_NAME" -C "npm run register:prod"
 fly logs --app "$APP_NAME"
 ```
 
-## GitHub CI and Fly CD
+## GitHub CI/CD
 
-The `.github/workflows/ci-cd.yml` workflow runs typecheck, tests, and a production build for pull requests and pushes to `master`.
+The `.github/workflows/ci-cd.yml` workflow runs typecheck, tests, and a production build for pull requests. Pushes to `master` also deploy to Fly.
 
-If you linked this repo in the Fly web UI, keep runtime secrets in Fly and let Fly deploy from the connected repository:
+Before the deploy job can run, add these in GitHub:
+
+- Repository variable: `FLY_APP_NAME` with your Fly app name.
+- Repository secret: `FLY_API_TOKEN` with an app-scoped Fly deploy token.
+
+Create the deploy token locally or from the Fly dashboard:
+
+```bash
+fly tokens create deploy --app "$APP_NAME" --name "github-actions" --expiry 8760h
+```
+
+Keep runtime secrets in Fly, not GitHub Actions:
 
 ```bash
 fly secrets set --app "$APP_NAME" DISCORD_TOKEN="your-discord-token"
