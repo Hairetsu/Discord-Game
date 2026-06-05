@@ -38,4 +38,8 @@ const services = {
 
 registerDiscordHandlers(client, services);
 
+client.once("ready", (readyClient) => {
+  console.log(`Discord bot logged in as ${readyClient.user.tag}.`);
+});
+
 await client.login(env.token);
