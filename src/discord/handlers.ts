@@ -11,6 +11,8 @@ import { formatDollars, nowMs } from "../game/time.js";
 import type { ActivityService } from "../services/activity.js";
 import { containsEmojiOrCustomEmote } from "../services/activity.js";
 import type { EconomyService } from "../services/economy.js";
+import type { MarketService } from "../services/market.js";
+import { MarketDataError } from "../services/market-data.js";
 import type { RobberyService } from "../services/robbery.js";
 import type { SecurityService } from "../services/security.js";
 import { scheduleReplyDeletion } from "./cleanup.js";
@@ -21,14 +23,21 @@ import {
   buyEmbed,
   leaderboardEmbed,
   loadoutEmbed,
+  marketLeaderboardEmbed,
+  marketQuoteEmbed,
+  marketSearchEmbed,
   moneyMoveEmbed,
-  shopEmbed
+  portfolioEmbed,
+  shopEmbed,
+  stockBuyEmbed,
+  stockSellEmbed
 } from "./ui.js";
 
 export interface BotServices {
   repo: HeistRepository;
   activity: ActivityService;
   economy: EconomyService;
+  market: MarketService;
   security: SecurityService;
   robbery: RobberyService;
   dropDispatcher: DropDispatcher;
@@ -192,6 +201,11 @@ async function handleCommand(
       return;
     }
 
+    case "market": {
+      await handleMarket(interaction, services, now);
+      return;
+    }
+
     case "admin": {
       await handleAdmin(interaction, services, now);
       return;
@@ -199,6 +213,89 @@ async function handleCommand(
 
     default:
       await interaction.reply({ content: "Unknown ledger entry.", flags: MessageFlags.Ephemeral });
+  }
+}
+
+async function handleMarket(
+  interaction: ChatInputCommandInteraction,
+  services: BotServices,
+  now: number
+): Promise<void> {
+  const guildId = interaction.guildId!;
+  const subcommand = interaction.options.getSubcommand(true);
+
+  try {
+    switch (subcommand) {
+      case "quote": {
+        const quote = await services.market.quote(interaction.options.getString("symbol", true), now);
+        await replyPublic(interaction, { embeds: [marketQuoteEmbed(quote)] });
+        return;
+      }
+
+      case "search": {
+        const matches = await services.market.search(interaction.options.getString("keywords", true));
+        await interaction.reply({ embeds: [marketSearchEmbed(matches)], flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      case "buy": {
+        const result = await services.market.buy(
+          guildId,
+          interaction.user.id,
+          interaction.options.getString("symbol", true),
+          interaction.options.getInteger("amount", true),
+          now
+        );
+        if (!result.ok) {
+          await interaction.reply({ content: marketBuyFailureText(result.reason), flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await replyPublic(interaction, { embeds: [stockBuyEmbed(result)] });
+        return;
+      }
+
+      case "sell": {
+        const sellAll = interaction.options.getBoolean("all") ?? false;
+        const shares = interaction.options.getNumber("shares") ?? undefined;
+        const result = await services.market.sell(
+          guildId,
+          interaction.user.id,
+          interaction.options.getString("symbol", true),
+          shares,
+          sellAll,
+          now
+        );
+        if (!result.ok) {
+          await interaction.reply({ content: marketSellFailureText(result.reason), flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await replyPublic(interaction, { embeds: [stockSellEmbed(result)] });
+        return;
+      }
+
+      case "portfolio": {
+        const target = interaction.options.getUser("player") ?? interaction.user;
+        if (target.bot) {
+          await interaction.reply({ content: "Bot accounts do not keep portfolios here.", flags: MessageFlags.Ephemeral });
+          return;
+        }
+        const view = await services.market.portfolio(guildId, target.id, now);
+        await interaction.reply({ embeds: [portfolioEmbed(view, target.id)], flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      case "leaderboard": {
+        const entries = await services.market.leaderboard(guildId, now);
+        await replyPublic(interaction, { embeds: [marketLeaderboardEmbed(entries)] });
+        return;
+      }
+    }
+  } catch (error) {
+    if (error instanceof MarketDataError) {
+      await interaction.reply({ content: marketDataErrorText(error), flags: MessageFlags.Ephemeral });
+      return;
+    }
+    throw error;
   }
 }
 
@@ -337,6 +434,47 @@ function buyFailureText(reason: "unknown_item" | "already_owned" | "insufficient
       return "You already own that item this season.";
     case "insufficient_wallet":
       return "Your wallet is short for that security buy.";
+  }
+}
+
+function marketBuyFailureText(reason: "invalid_amount" | "insufficient_wallet" | "order_too_small"): string {
+  switch (reason) {
+    case "invalid_amount":
+      return "Use a positive wallet-dollar amount.";
+    case "insufficient_wallet":
+      return "Your wallet is short for that stock buy.";
+    case "order_too_small":
+      return "That order is too small at the current market price.";
+  }
+}
+
+function marketSellFailureText(
+  reason: "missing_position" | "invalid_shares" | "insufficient_shares" | "order_too_small"
+): string {
+  switch (reason) {
+    case "missing_position":
+      return "You do not own that symbol this season.";
+    case "invalid_shares":
+      return "Choose a share amount or set all:true.";
+    case "insufficient_shares":
+      return "You do not own that many shares.";
+    case "order_too_small":
+      return "That sale would return less than $1.";
+  }
+}
+
+function marketDataErrorText(error: MarketDataError): string {
+  switch (error.code) {
+    case "missing_key":
+      return "Real-market trading needs `ALPHA_VANTAGE_API_KEY` in `.env` before the market desk can open.";
+    case "invalid_symbol":
+      return error.message;
+    case "not_found":
+      return "No real-market quote was found for that symbol.";
+    case "rate_limited":
+      return "The market data provider is rate-limiting requests. Try again after the quote cache cools down.";
+    case "provider_error":
+      return "The market data provider did not return a usable quote.";
   }
 }
 

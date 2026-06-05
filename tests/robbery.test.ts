@@ -5,12 +5,20 @@ import { SequenceRandomSource } from "../src/game/random.js";
 import { createTestServices, LcgRandomSource } from "./helpers.js";
 
 describe("robbery service", () => {
-  it("gives new players exactly one minute of robbery protection", () => {
-    const { repo } = createTestServices();
+  it("does not give new players robbery protection", () => {
+    const { repo, robbery } = createTestServices(new SequenceRandomSource([0, 0]));
+    const robber = repo.ensurePlayer("guild", "robber", 1000);
     const player = repo.ensurePlayer("guild", "target", 1000);
+    robber.wallet = 1000;
+    player.wallet = 1000;
+    player.robberyShieldUntil = 999_999_999;
+    repo.savePlayer(robber, 1000);
+    repo.savePlayer(player, 1000);
 
-    expect(player.robberyShieldUntil).toBe(1000 + NEW_PLAYER_SHIELD_MS);
-    expect(NEW_PLAYER_SHIELD_MS).toBe(60_000);
+    const result = robbery.rob("guild", "robber", "target", 2000);
+
+    expect(NEW_PLAYER_SHIELD_MS).toBe(0);
+    expect(result.ok && result.success && result.stolen).toBe(100);
   });
 
   it("steals bounded wallet cash on a successful robbery", () => {

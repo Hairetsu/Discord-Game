@@ -106,9 +106,6 @@ export class RobberyService {
       if (!target) {
         return { ok: false, kind, reason: "target_not_enrolled", robber };
       }
-      if (target.robberyShieldUntil > now) {
-        return { ok: false, kind, reason: "target_shielded", robber, target, availableAt: target.robberyShieldUntil };
-      }
 
       if (kind === "rob") {
         if (robber.robCooldownUntil > now) {

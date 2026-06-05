@@ -17,6 +17,8 @@ describe("migrations", () => {
         "loadouts",
         "drops",
         "transactions",
+        "stock_positions",
+        "stock_quote_cache",
         "schema_migrations"
       ])
     );

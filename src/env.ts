@@ -3,6 +3,7 @@ export interface AppEnv {
   clientId: string;
   guildId?: string;
   databasePath: string;
+  alphaVantageApiKey?: string;
 }
 
 export function loadEnv(): AppEnv {
@@ -19,6 +20,7 @@ export function loadEnv(): AppEnv {
     token,
     clientId,
     guildId: process.env.DISCORD_GUILD_ID || undefined,
-    databasePath: process.env.DATABASE_PATH || "./data/heist-bank.sqlite"
+    databasePath: process.env.DATABASE_PATH || "./data/heist-bank.sqlite",
+    alphaVantageApiKey: process.env.ALPHA_VANTAGE_API_KEY || undefined
   };
 }

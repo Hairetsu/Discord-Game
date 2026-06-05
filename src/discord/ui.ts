@@ -14,7 +14,9 @@ import {
   type SecurityItem,
   type SecuritySlot
 } from "../game/constants.js";
-import { formatDollars, remainingSeconds } from "../game/time.js";
+import { formatCents, formatDollars, remainingSeconds } from "../game/time.js";
+import type { MarketQuote, MarketSymbolMatch } from "../services/market-data.js";
+import type { MarketBuyResult, MarketLeaderboardEntry, MarketSellResult, PortfolioView } from "../services/market.js";
 import type { AttackResult } from "../services/robbery.js";
 
 export function dropButton(dropId: string, disabled = false): ActionRowBuilder<ButtonBuilder> {
@@ -146,6 +148,95 @@ export function attackEmbed(result: AttackResult): EmbedBuilder {
     .addFields({ name: "Odds", value: `${Math.round(result.chance * 100)}%`, inline: true });
 }
 
+export function marketQuoteEmbed(quote: MarketQuote): EmbedBuilder {
+  const changeSign = quote.changeCents >= 0 ? "+" : "";
+  return new EmbedBuilder()
+    .setColor(quote.changeCents >= 0 ? NOIR.green : NOIR.red)
+    .setTitle(`${quote.symbol} Market Quote`)
+    .addFields(
+      { name: "Price", value: formatCents(quote.priceCents), inline: true },
+      {
+        name: "Move",
+        value: `${changeSign}${formatCents(quote.changeCents)} (${quote.changePercent.toFixed(2)}%)`,
+        inline: true
+      },
+      { name: "Volume", value: quote.volume.toLocaleString("en-US"), inline: true },
+      { name: "As Of", value: quote.asOf, inline: true },
+      { name: "Source", value: quote.provider, inline: true }
+    );
+}
+
+export function marketSearchEmbed(matches: MarketSymbolMatch[]): EmbedBuilder {
+  const description = matches.length
+    ? matches
+        .map((match) => `**${match.symbol}** - ${match.name}\n${match.region} · ${match.currency}`)
+        .join("\n\n")
+    : "No matching market symbols found.";
+
+  return new EmbedBuilder().setColor(NOIR.brass).setTitle("Ticker Wire Search").setDescription(description);
+}
+
+export function stockBuyEmbed(result: Extract<MarketBuyResult, { ok: true }>): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(NOIR.green)
+    .setTitle("Stock Position Opened")
+    .setDescription(
+      `<@${result.player.userId}> bought **${formatShares(result.sharesBoughtMicro)} ${result.quote.symbol}** for **${formatDollars(
+        result.spentDollars
+      )}**.`
+    )
+    .addFields(
+      { name: "Fill Price", value: formatCents(result.quote.priceCents), inline: true },
+      { name: "Wallet", value: formatDollars(result.player.wallet), inline: true }
+    );
+}
+
+export function stockSellEmbed(result: Extract<MarketSellResult, { ok: true }>): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(result.realizedGainLossCents >= 0 ? NOIR.green : NOIR.red)
+    .setTitle("Stock Position Sold")
+    .setDescription(
+      `<@${result.player.userId}> sold **${formatShares(result.sharesSoldMicro)} ${result.quote.symbol}** for **${formatDollars(
+        result.receivedDollars
+      )}**.`
+    )
+    .addFields(
+      { name: "Fill Price", value: formatCents(result.quote.priceCents), inline: true },
+      { name: "Realized", value: formatCents(result.realizedGainLossCents), inline: true },
+      { name: "Wallet", value: formatDollars(result.player.wallet), inline: true }
+    );
+}
+
+export function portfolioEmbed(view: PortfolioView, userId: string): EmbedBuilder {
+  const lines = view.positions.length
+    ? view.positions.map((position) => {
+        return `**${position.holding.symbol}** ${formatShares(position.holding.sharesMicro)} shares · ${formatCents(
+          position.marketValueCents
+        )} (${formatCents(position.gainLossCents)})`;
+      })
+    : ["No stock positions this season."];
+
+  return new EmbedBuilder()
+    .setColor(view.gainLossCents >= 0 ? NOIR.green : NOIR.red)
+    .setTitle("Market Portfolio")
+    .setDescription(`<@${userId}>\n\n${lines.join("\n")}`)
+    .addFields(
+      { name: "Stock Value", value: formatCents(view.stockValueCents), inline: true },
+      { name: "Cost Basis", value: formatCents(view.costBasisCents), inline: true },
+      { name: "Open P/L", value: formatCents(view.gainLossCents), inline: true },
+      { name: "Wallet", value: formatDollars(view.player.wallet), inline: true },
+      { name: "Bank", value: formatDollars(view.player.bank), inline: true }
+    );
+}
+
+export function marketLeaderboardEmbed(entries: MarketLeaderboardEntry[]): EmbedBuilder {
+  const lines = entries.length
+    ? entries.map((entry, index) => `**${index + 1}.** <@${entry.userId}> - ${formatCents(entry.stockValueCents)}`)
+    : ["No stock portfolios are on the board yet."];
+
+  return new EmbedBuilder().setColor(NOIR.brass).setTitle("Market Desk Board").setDescription(lines.join("\n"));
+}
+
 function attackRefusalText(result: Extract<AttackResult, { ok: false }>): string {
   switch (result.reason) {
     case "self_target":
@@ -176,4 +267,11 @@ function slotLabel(slot: SecuritySlot): string {
     case "insurance":
       return "Insurance";
   }
+}
+
+function formatShares(sharesMicro: number): string {
+  return (sharesMicro / 1_000_000).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6
+  });
 }

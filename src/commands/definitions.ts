@@ -50,6 +50,58 @@ export const commandBuilders = [
     .addUserOption((option) => option.setName("target").setDescription("Player to heist.").setRequired(true)),
 
   new SlashCommandBuilder()
+    .setName("market")
+    .setDescription("Trade real-market stocks with heist cash.")
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("quote")
+        .setDescription("Get a real-market quote.")
+        .addStringOption((option) =>
+          option.setName("symbol").setDescription("Ticker symbol, like AAPL, MSFT, SPY.").setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("search")
+        .setDescription("Search real-market ticker symbols.")
+        .addStringOption((option) =>
+          option.setName("keywords").setDescription("Company, ETF, or ticker keywords.").setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("buy")
+        .setDescription("Buy fractional shares with wallet cash.")
+        .addStringOption((option) =>
+          option.setName("symbol").setDescription("Ticker symbol, like AAPL, MSFT, SPY.").setRequired(true)
+        )
+        .addIntegerOption((option) =>
+          option.setName("amount").setDescription("Wallet dollars to invest.").setMinValue(1).setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("sell")
+        .setDescription("Sell fractional shares back to wallet cash.")
+        .addStringOption((option) =>
+          option.setName("symbol").setDescription("Ticker symbol, like AAPL, MSFT, SPY.").setRequired(true)
+        )
+        .addNumberOption((option) =>
+          option.setName("shares").setDescription("Shares to sell. Leave blank if using all:true.").setMinValue(0.000001)
+        )
+        .addBooleanOption((option) => option.setName("all").setDescription("Sell your full position."))
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("portfolio")
+        .setDescription("View your real-market stock portfolio.")
+        .addUserOption((option) => option.setName("player").setDescription("Player portfolio to view. Defaults to you."))
+    )
+    .addSubcommand((subcommand) =>
+      subcommand.setName("leaderboard").setDescription("Rank players by stock portfolio value.")
+    ),
+
+  new SlashCommandBuilder()
     .setName("admin")
     .setDescription("Manage the heist economy.")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)

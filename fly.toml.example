@@ -1,0 +1,18 @@
+app = "your-fly-app-name"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  DATABASE_PATH = "/data/heist-bank.sqlite"
+
+[[mounts]]
+  source = "heist_data"
+  destination = "/data"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

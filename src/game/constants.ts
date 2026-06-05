@@ -1,5 +1,5 @@
 export const STARTING_WALLET = 250;
-export const NEW_PLAYER_SHIELD_MS = 60 * 1000;
+export const NEW_PLAYER_SHIELD_MS = 0;
 export const BOT_MESSAGE_TTL_MS = 10 * 1000;
 
 export const DROP_MIN = 25;
@@ -20,6 +20,9 @@ export const CHAT_REWARD_COOLDOWN_MS = 2 * 60 * 1000;
 export const EMOTE_REWARD_MIN = 2;
 export const EMOTE_REWARD_MAX = 6;
 export const EMOTE_REWARD_COOLDOWN_MS = 5 * 60 * 1000;
+
+export const MICROSHARES_PER_SHARE = 1_000_000;
+export const MARKET_QUOTE_CACHE_MS = 5 * 60 * 1000;
 
 export const ROB_BASE_SUCCESS = 0.45;
 export const ROB_MIN_PERCENT = 0.1;

@@ -102,6 +102,52 @@ export interface LeaderboardEntry {
   lifetimeStolen: number;
 }
 
+export interface StockHoldingRecord {
+  guildId: string;
+  userId: string;
+  seasonId: number;
+  symbol: string;
+  sharesMicro: number;
+  costBasisCents: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CachedStockQuoteRecord {
+  symbol: string;
+  priceCents: number;
+  changeCents: number;
+  changePercent: number;
+  volume: number;
+  provider: string;
+  asOf: string;
+  fetchedAt: number;
+  raw: Record<string, unknown>;
+}
+
+interface StockHoldingRow {
+  guild_id: string;
+  user_id: string;
+  season_id: number;
+  symbol: string;
+  shares_micro: number;
+  cost_basis_cents: number;
+  created_at: number;
+  updated_at: number;
+}
+
+interface CachedStockQuoteRow {
+  symbol: string;
+  price_cents: number;
+  change_cents: number;
+  change_percent: number;
+  volume: number;
+  provider: string;
+  as_of: string;
+  fetched_at: number;
+  raw: string;
+}
+
 function mapGuild(row: GuildConfigRow): GuildConfig {
   return {
     guildId: row.guild_id,
@@ -146,6 +192,33 @@ function mapDrop(row: DropRow): DropRecord {
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     claimedAt: row.claimed_at
+  };
+}
+
+function mapStockHolding(row: StockHoldingRow): StockHoldingRecord {
+  return {
+    guildId: row.guild_id,
+    userId: row.user_id,
+    seasonId: row.season_id,
+    symbol: row.symbol,
+    sharesMicro: row.shares_micro,
+    costBasisCents: row.cost_basis_cents,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapCachedStockQuote(row: CachedStockQuoteRow): CachedStockQuoteRecord {
+  return {
+    symbol: row.symbol,
+    priceCents: row.price_cents,
+    changeCents: row.change_cents,
+    changePercent: row.change_percent,
+    volume: row.volume,
+    provider: row.provider,
+    asOf: row.as_of,
+    fetchedAt: row.fetched_at,
+    raw: JSON.parse(row.raw) as Record<string, unknown>
   };
 }
 
@@ -479,5 +552,117 @@ export class HeistRepository {
     return rows
       .map((row) => SECURITY_BY_ID.get(row.item_id))
       .filter((item): item is SecurityItem => Boolean(item));
+  }
+
+  getStockHolding(guildId: string, userId: string, seasonId: number, symbol: string): StockHoldingRecord | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT *
+         FROM stock_positions
+         WHERE guild_id = ? AND user_id = ? AND season_id = ? AND symbol = ?`
+      )
+      .get(guildId, userId, seasonId, symbol.toUpperCase()) as StockHoldingRow | undefined;
+    return row ? mapStockHolding(row) : undefined;
+  }
+
+  listStockHoldings(guildId: string, userId: string, seasonId: number): StockHoldingRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT *
+           FROM stock_positions
+           WHERE guild_id = ? AND user_id = ? AND season_id = ? AND shares_micro > 0
+           ORDER BY symbol ASC`
+        )
+        .all(guildId, userId, seasonId) as StockHoldingRow[]
+    ).map(mapStockHolding);
+  }
+
+  listSeasonStockHolders(guildId: string, seasonId: number): Array<{ userId: string; symbols: string[] }> {
+    const rows = this.db
+      .prepare(
+        `SELECT user_id, symbol
+         FROM stock_positions
+         WHERE guild_id = ? AND season_id = ? AND shares_micro > 0
+         ORDER BY user_id ASC, symbol ASC`
+      )
+      .all(guildId, seasonId) as Array<{ user_id: string; symbol: string }>;
+
+    const grouped = new Map<string, string[]>();
+    for (const row of rows) {
+      grouped.set(row.user_id, [...(grouped.get(row.user_id) ?? []), row.symbol]);
+    }
+    return [...grouped.entries()].map(([userId, symbols]) => ({ userId, symbols }));
+  }
+
+  saveStockHolding(holding: StockHoldingRecord, now: number): void {
+    if (holding.sharesMicro <= 0) {
+      this.db
+        .prepare(
+          `DELETE FROM stock_positions
+           WHERE guild_id = ? AND user_id = ? AND season_id = ? AND symbol = ?`
+        )
+        .run(holding.guildId, holding.userId, holding.seasonId, holding.symbol);
+      return;
+    }
+
+    this.db
+      .prepare(
+        `INSERT INTO stock_positions
+          (guild_id, user_id, season_id, symbol, shares_micro, cost_basis_cents, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(guild_id, user_id, season_id, symbol)
+         DO UPDATE SET
+           shares_micro = excluded.shares_micro,
+           cost_basis_cents = excluded.cost_basis_cents,
+           updated_at = excluded.updated_at`
+      )
+      .run(
+        holding.guildId,
+        holding.userId,
+        holding.seasonId,
+        holding.symbol.toUpperCase(),
+        holding.sharesMicro,
+        holding.costBasisCents,
+        holding.createdAt,
+        now
+      );
+  }
+
+  getCachedStockQuote(symbol: string): CachedStockQuoteRecord | undefined {
+    const row = this.db
+      .prepare("SELECT * FROM stock_quote_cache WHERE symbol = ?")
+      .get(symbol.toUpperCase()) as CachedStockQuoteRow | undefined;
+    return row ? mapCachedStockQuote(row) : undefined;
+  }
+
+  saveCachedStockQuote(quote: CachedStockQuoteRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO stock_quote_cache
+          (symbol, price_cents, change_cents, change_percent, volume, provider, as_of, fetched_at, raw)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(symbol)
+         DO UPDATE SET
+           price_cents = excluded.price_cents,
+           change_cents = excluded.change_cents,
+           change_percent = excluded.change_percent,
+           volume = excluded.volume,
+           provider = excluded.provider,
+           as_of = excluded.as_of,
+           fetched_at = excluded.fetched_at,
+           raw = excluded.raw`
+      )
+      .run(
+        quote.symbol.toUpperCase(),
+        quote.priceCents,
+        quote.changeCents,
+        quote.changePercent,
+        quote.volume,
+        quote.provider,
+        quote.asOf,
+        quote.fetchedAt,
+        JSON.stringify(quote.raw)
+      );
   }
 }

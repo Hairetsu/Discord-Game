@@ -1,0 +1,75 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Deploy to Fly
+    needs: check
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    environment: production
+    concurrency:
+      group: fly-production
+      cancel-in-progress: false
+
+    env:
+      FLY_APP_NAME: ${{ vars.FLY_APP_NAME }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deployment config
+        run: |
+          test -n "$FLY_APP_NAME" || (echo "Set repository variable FLY_APP_NAME to your Fly app name." && exit 1)
+          test -n "$FLY_API_TOKEN" || (echo "Set repository secret FLY_API_TOKEN to a Fly deploy token." && exit 1)
+
+      - name: Create Fly config
+        run: |
+          cp fly.toml.example fly.toml
+          perl -0pi -e "s/your-fly-app-name/$ENV{FLY_APP_NAME}/" fly.toml
+
+      - name: Set up flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy
+        run: flyctl deploy --remote-only --app "$FLY_APP_NAME"
