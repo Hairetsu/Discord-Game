@@ -1,5 +1,6 @@
 import type { SqliteDatabase } from "./database.js";
 import { STARTING_WALLET, NEW_PLAYER_SHIELD_MS, SECURITY_BY_ID, type SecurityItem } from "../game/constants.js";
+import type { CrewRole, DropKind, SeasonModifierId } from "../game/engagement.js";
 
 export interface GuildConfig {
   guildId: string;
@@ -8,8 +9,28 @@ export interface GuildConfig {
   timezone: string;
   nextDropAt: number | null;
   lastInterestAt: number | null;
+  lastGazetteAt: number | null;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface SeasonAwards {
+  richestUserId?: string;
+  bestThiefUserId?: string;
+  biggestHeistUserId?: string;
+  biggestHeistAmount?: number;
+  worstLuckUserId?: string;
+  mostWantedUserId?: string;
+}
+
+export interface SeasonRecord {
+  guildId: string;
+  seasonId: number;
+  startedAt: number;
+  endedAt: number | null;
+  winnerUserId: string | null;
+  modifierId: SeasonModifierId;
+  awards: SeasonAwards;
 }
 
 export interface PlayerRecord {
@@ -26,6 +47,8 @@ export interface PlayerRecord {
   heistLockoutUntil: number;
   lastChatRewardAt: number;
   lastEmoteRewardAt: number;
+  heat: number;
+  lastCaseAt: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -36,10 +59,77 @@ export interface DropRecord {
   channelId: string;
   messageId: string | null;
   amount: number;
+  kind: DropKind;
+  requiredClaims: number;
+  heatDelta: number;
   claimedByUserId: string | null;
   createdAt: number;
   expiresAt: number;
   claimedAt: number | null;
+}
+
+export interface DropClaimRecord {
+  dropId: string;
+  userId: string;
+  claimedAt: number;
+}
+
+export interface RivalryRecord {
+  guildId: string;
+  seasonId: number;
+  attackerUserId: string;
+  targetUserId: string;
+  attacks: number;
+  successes: number;
+  stolenTotal: number;
+  lastAttackAt: number;
+  lastSuccessAt: number | null;
+}
+
+export interface BountyRecord {
+  id: number;
+  guildId: string;
+  seasonId: number;
+  issuerUserId: string;
+  targetUserId: string;
+  amount: number;
+  claimedByUserId: string | null;
+  claimedAt: number | null;
+  expiresAt: number;
+  createdAt: number;
+}
+
+export interface CrewHeistRecord {
+  id: string;
+  guildId: string;
+  seasonId: number;
+  leaderUserId: string;
+  targetUserId: string;
+  channelId: string;
+  messageId: string | null;
+  status: "recruiting" | "resolved" | "expired";
+  createdAt: number;
+  expiresAt: number;
+  resolvedAt: number | null;
+}
+
+export interface CrewHeistMemberRecord {
+  crewHeistId: string;
+  userId: string;
+  role: CrewRole;
+  joinedAt: number;
+}
+
+export interface TransactionRecord {
+  id: number;
+  guildId: string;
+  userId: string;
+  seasonId: number;
+  type: string;
+  amount: number;
+  counterpartyUserId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: number;
 }
 
 interface GuildConfigRow {
@@ -49,8 +139,19 @@ interface GuildConfigRow {
   timezone: string;
   next_drop_at: number | null;
   last_interest_at: number | null;
+  last_gazette_at: number | null;
   created_at: number;
   updated_at: number;
+}
+
+interface SeasonRow {
+  guild_id: string;
+  season_id: number;
+  started_at: number;
+  ended_at: number | null;
+  winner_user_id: string | null;
+  modifier_id: SeasonModifierId;
+  awards_json: string;
 }
 
 interface PlayerRow {
@@ -67,6 +168,8 @@ interface PlayerRow {
   heist_lockout_until: number;
   last_chat_reward_at: number;
   last_emote_reward_at: number;
+  heat: number;
+  last_case_at: number;
   created_at: number;
   updated_at: number;
 }
@@ -77,10 +180,77 @@ interface DropRow {
   channel_id: string;
   message_id: string | null;
   amount: number;
+  kind: DropKind;
+  required_claims: number;
+  heat_delta: number;
   claimed_by_user_id: string | null;
   created_at: number;
   expires_at: number;
   claimed_at: number | null;
+}
+
+interface DropClaimRow {
+  drop_id: string;
+  user_id: string;
+  claimed_at: number;
+}
+
+interface RivalryRow {
+  guild_id: string;
+  season_id: number;
+  attacker_user_id: string;
+  target_user_id: string;
+  attacks: number;
+  successes: number;
+  stolen_total: number;
+  last_attack_at: number;
+  last_success_at: number | null;
+}
+
+interface BountyRow {
+  id: number;
+  guild_id: string;
+  season_id: number;
+  issuer_user_id: string;
+  target_user_id: string;
+  amount: number;
+  claimed_by_user_id: string | null;
+  claimed_at: number | null;
+  expires_at: number;
+  created_at: number;
+}
+
+interface CrewHeistRow {
+  id: string;
+  guild_id: string;
+  season_id: number;
+  leader_user_id: string;
+  target_user_id: string;
+  channel_id: string;
+  message_id: string | null;
+  status: "recruiting" | "resolved" | "expired";
+  created_at: number;
+  expires_at: number;
+  resolved_at: number | null;
+}
+
+interface CrewHeistMemberRow {
+  crew_heist_id: string;
+  user_id: string;
+  role: CrewRole;
+  joined_at: number;
+}
+
+interface TransactionRow {
+  id: number;
+  guild_id: string;
+  user_id: string;
+  season_id: number;
+  type: string;
+  amount: number;
+  counterparty_user_id: string | null;
+  metadata: string;
+  created_at: number;
 }
 
 export interface TransactionInput {
@@ -100,6 +270,7 @@ export interface LeaderboardEntry {
   bank: number;
   netWorth: number;
   lifetimeStolen: number;
+  heat: number;
 }
 
 export interface StockHoldingRecord {
@@ -156,8 +327,21 @@ function mapGuild(row: GuildConfigRow): GuildConfig {
     timezone: row.timezone,
     nextDropAt: row.next_drop_at,
     lastInterestAt: row.last_interest_at,
+    lastGazetteAt: row.last_gazette_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  };
+}
+
+function mapSeason(row: SeasonRow): SeasonRecord {
+  return {
+    guildId: row.guild_id,
+    seasonId: row.season_id,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    winnerUserId: row.winner_user_id,
+    modifierId: row.modifier_id,
+    awards: JSON.parse(row.awards_json) as SeasonAwards
   };
 }
 
@@ -176,6 +360,8 @@ function mapPlayer(row: PlayerRow): PlayerRecord {
     heistLockoutUntil: row.heist_lockout_until,
     lastChatRewardAt: row.last_chat_reward_at,
     lastEmoteRewardAt: row.last_emote_reward_at,
+    heat: row.heat,
+    lastCaseAt: row.last_case_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -188,10 +374,89 @@ function mapDrop(row: DropRow): DropRecord {
     channelId: row.channel_id,
     messageId: row.message_id,
     amount: row.amount,
+    kind: row.kind,
+    requiredClaims: row.required_claims,
+    heatDelta: row.heat_delta,
     claimedByUserId: row.claimed_by_user_id,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     claimedAt: row.claimed_at
+  };
+}
+
+function mapDropClaim(row: DropClaimRow): DropClaimRecord {
+  return {
+    dropId: row.drop_id,
+    userId: row.user_id,
+    claimedAt: row.claimed_at
+  };
+}
+
+function mapRivalry(row: RivalryRow): RivalryRecord {
+  return {
+    guildId: row.guild_id,
+    seasonId: row.season_id,
+    attackerUserId: row.attacker_user_id,
+    targetUserId: row.target_user_id,
+    attacks: row.attacks,
+    successes: row.successes,
+    stolenTotal: row.stolen_total,
+    lastAttackAt: row.last_attack_at,
+    lastSuccessAt: row.last_success_at
+  };
+}
+
+function mapBounty(row: BountyRow): BountyRecord {
+  return {
+    id: row.id,
+    guildId: row.guild_id,
+    seasonId: row.season_id,
+    issuerUserId: row.issuer_user_id,
+    targetUserId: row.target_user_id,
+    amount: row.amount,
+    claimedByUserId: row.claimed_by_user_id,
+    claimedAt: row.claimed_at,
+    expiresAt: row.expires_at,
+    createdAt: row.created_at
+  };
+}
+
+function mapCrewHeist(row: CrewHeistRow): CrewHeistRecord {
+  return {
+    id: row.id,
+    guildId: row.guild_id,
+    seasonId: row.season_id,
+    leaderUserId: row.leader_user_id,
+    targetUserId: row.target_user_id,
+    channelId: row.channel_id,
+    messageId: row.message_id,
+    status: row.status,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    resolvedAt: row.resolved_at
+  };
+}
+
+function mapCrewHeistMember(row: CrewHeistMemberRow): CrewHeistMemberRecord {
+  return {
+    crewHeistId: row.crew_heist_id,
+    userId: row.user_id,
+    role: row.role,
+    joinedAt: row.joined_at
+  };
+}
+
+function mapTransaction(row: TransactionRow): TransactionRecord {
+  return {
+    id: row.id,
+    guildId: row.guild_id,
+    userId: row.user_id,
+    seasonId: row.season_id,
+    type: row.type,
+    amount: row.amount,
+    counterpartyUserId: row.counterparty_user_id,
+    metadata: JSON.parse(row.metadata) as Record<string, unknown>,
+    createdAt: row.created_at
   };
 }
 
@@ -259,6 +524,36 @@ export class HeistRepository {
     return row ? mapGuild(row) : undefined;
   }
 
+  getSeason(guildId: string, seasonId: number): SeasonRecord | undefined {
+    const row = this.db
+      .prepare("SELECT * FROM seasons WHERE guild_id = ? AND season_id = ?")
+      .get(guildId, seasonId) as SeasonRow | undefined;
+    return row ? mapSeason(row) : undefined;
+  }
+
+  getCurrentSeason(guildId: string, now: number): SeasonRecord {
+    const config = this.ensureGuild(guildId, now);
+    const season = this.getSeason(guildId, config.currentSeasonId);
+    if (!season) {
+      throw new Error(`Missing current season ${config.currentSeasonId} for guild ${guildId}`);
+    }
+    return season;
+  }
+
+  listSeasons(guildId: string, limit = 5): SeasonRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT *
+           FROM seasons
+           WHERE guild_id = ?
+           ORDER BY season_id DESC
+           LIMIT ?`
+        )
+        .all(guildId, limit) as SeasonRow[]
+    ).map(mapSeason);
+  }
+
   listGuildConfigs(): GuildConfig[] {
     return (this.db.prepare("SELECT * FROM guild_configs").all() as GuildConfigRow[]).map(mapGuild);
   }
@@ -286,7 +581,17 @@ export class HeistRepository {
       .run(lastInterestAt, now, guildId);
   }
 
-  startNextSeason(guildId: string, now: number): { seasonId: number; winnerUserId: string | null } {
+  setLastGazetteAt(guildId: string, lastGazetteAt: number, now: number): void {
+    this.db
+      .prepare("UPDATE guild_configs SET last_gazette_at = ?, updated_at = ? WHERE guild_id = ?")
+      .run(lastGazetteAt, now, guildId);
+  }
+
+  startNextSeason(
+    guildId: string,
+    now: number,
+    modifierId: SeasonModifierId = "standard"
+  ): { seasonId: number; winnerUserId: string | null; awards: SeasonAwards; modifierId: SeasonModifierId } {
     return this.transaction(() => {
       const config = this.ensureGuild(guildId, now);
       const winner = this.db
@@ -298,22 +603,23 @@ export class HeistRepository {
            LIMIT 1`
         )
         .get(guildId, config.currentSeasonId) as { user_id: string } | undefined;
+      const awards = this.buildSeasonAwards(guildId, config.currentSeasonId);
 
       this.db
         .prepare(
           `UPDATE seasons
-           SET ended_at = ?, winner_user_id = ?
+           SET ended_at = ?, winner_user_id = ?, awards_json = ?
            WHERE guild_id = ? AND season_id = ?`
         )
-        .run(now, winner?.user_id ?? null, guildId, config.currentSeasonId);
+        .run(now, winner?.user_id ?? null, JSON.stringify(awards), guildId, config.currentSeasonId);
 
       const nextSeasonId = config.currentSeasonId + 1;
       this.db
         .prepare(
-          `INSERT INTO seasons (guild_id, season_id, started_at)
-           VALUES (?, ?, ?)`
+          `INSERT INTO seasons (guild_id, season_id, started_at, modifier_id)
+           VALUES (?, ?, ?, ?)`
         )
-        .run(guildId, nextSeasonId, now);
+        .run(guildId, nextSeasonId, now, modifierId);
 
       this.db
         .prepare(
@@ -323,8 +629,59 @@ export class HeistRepository {
         )
         .run(nextSeasonId, now, guildId);
 
-      return { seasonId: nextSeasonId, winnerUserId: winner?.user_id ?? null };
+      return { seasonId: nextSeasonId, winnerUserId: winner?.user_id ?? null, awards, modifierId };
     });
+  }
+
+  private buildSeasonAwards(guildId: string, seasonId: number): SeasonAwards {
+    const richest = this.getLeaderboard(guildId, seasonId, 1)[0];
+    const bestThief = this.db
+      .prepare(
+        `SELECT user_id, SUM(amount) AS total
+         FROM transactions
+         WHERE guild_id = ? AND season_id = ? AND type IN ('rob_success', 'heist_success')
+         GROUP BY user_id
+         ORDER BY total DESC
+         LIMIT 1`
+      )
+      .get(guildId, seasonId) as { user_id: string; total: number } | undefined;
+    const biggestHeist = this.db
+      .prepare(
+        `SELECT user_id, amount
+         FROM transactions
+         WHERE guild_id = ? AND season_id = ? AND type = 'heist_success'
+         ORDER BY amount DESC
+         LIMIT 1`
+      )
+      .get(guildId, seasonId) as { user_id: string; amount: number } | undefined;
+    const worstLuck = this.db
+      .prepare(
+        `SELECT user_id, COUNT(*) AS failures
+         FROM transactions
+         WHERE guild_id = ? AND season_id = ? AND type IN ('rob_failure', 'heist_failure', 'crew_heist_failure')
+         GROUP BY user_id
+         ORDER BY failures DESC
+         LIMIT 1`
+      )
+      .get(guildId, seasonId) as { user_id: string; failures: number } | undefined;
+    const mostWanted = this.db
+      .prepare(
+        `SELECT user_id, heat
+         FROM players
+         WHERE guild_id = ? AND season_id = ?
+         ORDER BY heat DESC
+         LIMIT 1`
+      )
+      .get(guildId, seasonId) as { user_id: string; heat: number } | undefined;
+
+    return {
+      richestUserId: richest?.userId,
+      bestThiefUserId: bestThief?.user_id,
+      biggestHeistUserId: biggestHeist?.user_id,
+      biggestHeistAmount: biggestHeist?.amount,
+      worstLuckUserId: worstLuck?.user_id,
+      mostWantedUserId: mostWanted && mostWanted.heat > 0 ? mostWanted.user_id : undefined
+    };
   }
 
   ensurePlayer(guildId: string, userId: string, now: number): PlayerRecord {
@@ -395,7 +752,8 @@ export class HeistRepository {
         `UPDATE players
          SET wallet = ?, bank = ?, lifetime_earned = ?, lifetime_stolen = ?,
              robbery_shield_until = ?, rob_cooldown_until = ?, heist_cooldown_until = ?,
-             heist_lockout_until = ?, last_chat_reward_at = ?, last_emote_reward_at = ?, updated_at = ?
+             heist_lockout_until = ?, last_chat_reward_at = ?, last_emote_reward_at = ?,
+             heat = ?, last_case_at = ?, updated_at = ?
          WHERE guild_id = ? AND user_id = ? AND season_id = ?`
       )
       .run(
@@ -409,6 +767,8 @@ export class HeistRepository {
         player.heistLockoutUntil,
         player.lastChatRewardAt,
         player.lastEmoteRewardAt,
+        player.heat,
+        player.lastCaseAt,
         now,
         player.guildId,
         player.userId,
@@ -428,7 +788,7 @@ export class HeistRepository {
     return (
       this.db
         .prepare(
-          `SELECT user_id, wallet, bank, (wallet + bank) AS net_worth, lifetime_stolen
+          `SELECT user_id, wallet, bank, (wallet + bank) AS net_worth, lifetime_stolen, heat
            FROM players
            WHERE guild_id = ? AND season_id = ?
            ORDER BY net_worth DESC, lifetime_stolen DESC
@@ -440,13 +800,15 @@ export class HeistRepository {
         bank: number;
         net_worth: number;
         lifetime_stolen: number;
+        heat: number;
       }>
     ).map((row) => ({
       userId: row.user_id,
       wallet: row.wallet,
       bank: row.bank,
       netWorth: row.net_worth,
-      lifetimeStolen: row.lifetime_stolen
+      lifetimeStolen: row.lifetime_stolen,
+      heat: row.heat
     }));
   }
 
@@ -454,8 +816,9 @@ export class HeistRepository {
     this.db
       .prepare(
         `INSERT INTO drops
-          (id, guild_id, channel_id, message_id, amount, claimed_by_user_id, created_at, expires_at, claimed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (id, guild_id, channel_id, message_id, amount, kind, required_claims, heat_delta,
+           claimed_by_user_id, created_at, expires_at, claimed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         drop.id,
@@ -463,6 +826,9 @@ export class HeistRepository {
         drop.channelId,
         drop.messageId,
         drop.amount,
+        drop.kind,
+        drop.requiredClaims,
+        drop.heatDelta,
         drop.claimedByUserId,
         drop.createdAt,
         drop.expiresAt,
@@ -488,6 +854,227 @@ export class HeistRepository {
       )
       .run(userId, now, dropId, now);
     return result.changes === 1;
+  }
+
+  addDropClaim(dropId: string, userId: string, now: number): boolean {
+    const result = this.db
+      .prepare(
+        `INSERT OR IGNORE INTO drop_claims (drop_id, user_id, claimed_at)
+         VALUES (?, ?, ?)`
+      )
+      .run(dropId, userId, now);
+    return result.changes === 1;
+  }
+
+  listDropClaims(dropId: string): DropClaimRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT *
+           FROM drop_claims
+           WHERE drop_id = ?
+           ORDER BY claimed_at ASC`
+        )
+        .all(dropId) as DropClaimRow[]
+    ).map(mapDropClaim);
+  }
+
+  recordRivalryAttack(
+    guildId: string,
+    seasonId: number,
+    attackerUserId: string,
+    targetUserId: string,
+    success: boolean,
+    stolen: number,
+    now: number
+  ): RivalryRecord {
+    this.db
+      .prepare(
+        `INSERT INTO rivalries
+          (guild_id, season_id, attacker_user_id, target_user_id, attacks, successes,
+           stolen_total, last_attack_at, last_success_at)
+         VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
+         ON CONFLICT(guild_id, season_id, attacker_user_id, target_user_id)
+         DO UPDATE SET
+           attacks = rivalries.attacks + 1,
+           successes = rivalries.successes + excluded.successes,
+           stolen_total = rivalries.stolen_total + excluded.stolen_total,
+           last_attack_at = excluded.last_attack_at,
+           last_success_at = COALESCE(excluded.last_success_at, rivalries.last_success_at)`
+      )
+      .run(guildId, seasonId, attackerUserId, targetUserId, success ? 1 : 0, stolen, now, success ? now : null);
+
+    const record = this.getRivalry(guildId, seasonId, attackerUserId, targetUserId);
+    if (!record) {
+      throw new Error("Failed to record rivalry");
+    }
+    return record;
+  }
+
+  getRivalry(
+    guildId: string,
+    seasonId: number,
+    attackerUserId: string,
+    targetUserId: string
+  ): RivalryRecord | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT *
+         FROM rivalries
+         WHERE guild_id = ? AND season_id = ? AND attacker_user_id = ? AND target_user_id = ?`
+      )
+      .get(guildId, seasonId, attackerUserId, targetUserId) as RivalryRow | undefined;
+    return row ? mapRivalry(row) : undefined;
+  }
+
+  createBounty(
+    guildId: string,
+    seasonId: number,
+    issuerUserId: string,
+    targetUserId: string,
+    amount: number,
+    expiresAt: number,
+    now: number
+  ): BountyRecord {
+    const result = this.db
+      .prepare(
+        `INSERT INTO bounties
+          (guild_id, season_id, issuer_user_id, target_user_id, amount, expires_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(guildId, seasonId, issuerUserId, targetUserId, amount, expiresAt, now);
+    const bounty = this.getBounty(Number(result.lastInsertRowid));
+    if (!bounty) {
+      throw new Error("Failed to create bounty");
+    }
+    return bounty;
+  }
+
+  getBounty(id: number): BountyRecord | undefined {
+    const row = this.db.prepare("SELECT * FROM bounties WHERE id = ?").get(id) as BountyRow | undefined;
+    return row ? mapBounty(row) : undefined;
+  }
+
+  listActiveBounties(guildId: string, seasonId: number, now: number, limit = 10): BountyRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT *
+           FROM bounties
+           WHERE guild_id = ? AND season_id = ? AND claimed_at IS NULL AND expires_at >= ?
+           ORDER BY amount DESC, created_at ASC
+           LIMIT ?`
+        )
+        .all(guildId, seasonId, now, limit) as BountyRow[]
+    ).map(mapBounty);
+  }
+
+  claimActiveBountiesForTarget(
+    guildId: string,
+    seasonId: number,
+    targetUserId: string,
+    claimantUserId: string,
+    now: number
+  ): BountyRecord[] {
+    const rows = this.db
+      .prepare(
+        `SELECT *
+         FROM bounties
+         WHERE guild_id = ? AND season_id = ? AND target_user_id = ?
+           AND claimed_at IS NULL AND expires_at >= ? AND issuer_user_id != ?
+         ORDER BY amount DESC, created_at ASC`
+      )
+      .all(guildId, seasonId, targetUserId, now, claimantUserId) as BountyRow[];
+
+    const claimed: BountyRecord[] = [];
+    for (const row of rows) {
+      const result = this.db
+        .prepare(
+          `UPDATE bounties
+           SET claimed_by_user_id = ?, claimed_at = ?
+           WHERE id = ? AND claimed_at IS NULL`
+        )
+        .run(claimantUserId, now, row.id);
+      if (result.changes === 1) {
+        claimed.push(mapBounty({ ...row, claimed_by_user_id: claimantUserId, claimed_at: now }));
+      }
+    }
+    return claimed;
+  }
+
+  insertCrewHeist(heist: CrewHeistRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO crew_heists
+          (id, guild_id, season_id, leader_user_id, target_user_id, channel_id, message_id,
+           status, created_at, expires_at, resolved_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        heist.id,
+        heist.guildId,
+        heist.seasonId,
+        heist.leaderUserId,
+        heist.targetUserId,
+        heist.channelId,
+        heist.messageId,
+        heist.status,
+        heist.createdAt,
+        heist.expiresAt,
+        heist.resolvedAt
+      );
+  }
+
+  setCrewHeistMessage(heistId: string, messageId: string): void {
+    this.db.prepare("UPDATE crew_heists SET message_id = ? WHERE id = ?").run(messageId, heistId);
+  }
+
+  getCrewHeist(heistId: string): CrewHeistRecord | undefined {
+    const row = this.db.prepare("SELECT * FROM crew_heists WHERE id = ?").get(heistId) as CrewHeistRow | undefined;
+    return row ? mapCrewHeist(row) : undefined;
+  }
+
+  updateCrewHeistStatus(heistId: string, status: CrewHeistRecord["status"], resolvedAt: number | null): void {
+    this.db
+      .prepare("UPDATE crew_heists SET status = ?, resolved_at = ? WHERE id = ?")
+      .run(status, resolvedAt, heistId);
+  }
+
+  addCrewHeistMember(heistId: string, userId: string, role: CrewRole, now: number): boolean {
+    const result = this.db
+      .prepare(
+        `INSERT OR IGNORE INTO crew_heist_members (crew_heist_id, user_id, role, joined_at)
+         VALUES (?, ?, ?, ?)`
+      )
+      .run(heistId, userId, role, now);
+    return result.changes === 1;
+  }
+
+  listCrewHeistMembers(heistId: string): CrewHeistMemberRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT *
+           FROM crew_heist_members
+           WHERE crew_heist_id = ?
+           ORDER BY joined_at ASC`
+        )
+        .all(heistId) as CrewHeistMemberRow[]
+    ).map(mapCrewHeistMember);
+  }
+
+  listTransactionsSince(guildId: string, seasonId: number, since: number, limit = 50): TransactionRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT *
+           FROM transactions
+           WHERE guild_id = ? AND season_id = ? AND created_at >= ?
+           ORDER BY created_at DESC
+           LIMIT ?`
+        )
+        .all(guildId, seasonId, since, limit) as TransactionRow[]
+    ).map(mapTransaction);
   }
 
   recordTransaction(input: TransactionInput): void {

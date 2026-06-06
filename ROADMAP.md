@@ -6,6 +6,22 @@ Make the bot feel like a living Discord crime economy without increasing noise. 
 
 Guiding rule: ephemeral by default, public only when another player can react to it.
 
+## Implementation Status
+
+The first full engagement pass is implemented:
+
+- Daily private case files
+- Player titles and heat display
+- Drop variants, including locked two-player cases
+- Heat bands that affect attack odds and fines
+- Rivalry tracking and callouts
+- Player-funded bounties
+- Role-based crew heists
+- Season modifiers, awards, and history
+- Scheduled Vault Gazette digest
+
+Future tuning should focus on live balance values, copy variety, and server-specific cadence.
+
 ## Phase 1: Engagement Spine
 
 Ship these first because they add daily reasons to play without spamming the server.
@@ -257,4 +273,3 @@ The first implementation milestone should include:
 - Drop variants
 
 This gives the largest engagement lift with the least complexity. It also keeps the anti-spam posture intact because most of the new interaction is private or reuses existing public moments.
-

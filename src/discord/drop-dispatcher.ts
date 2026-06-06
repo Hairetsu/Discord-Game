@@ -4,7 +4,7 @@ import type { HeistRepository } from "../db/repository.js";
 import { ACTIVE_CHANNEL_WINDOW_MS } from "../game/constants.js";
 import type { DropService } from "../services/drops.js";
 import { scheduleMessageDeletion } from "./cleanup.js";
-import { claimedDropEmbed, dropButton, dropEmbed } from "./ui.js";
+import { claimedDropEmbed, dropButton, dropEmbed, pendingDropEmbed } from "./ui.js";
 
 export class DropDispatcher {
   private readonly activeChannels = new Map<string, number>();
@@ -34,13 +34,13 @@ export class DropDispatcher {
 
     const drop = this.drops.createDrop(guildId, channelId, now);
     const message = await channel.send({
-      embeds: [dropEmbed(drop.amount)],
-      components: [dropButton(drop.id)]
+      embeds: [dropEmbed(drop)],
+      components: [dropButton(drop)]
     });
     this.drops.attachMessage(drop.id, message.id);
 
     setTimeout(() => {
-      message.edit({ components: [dropButton(drop.id, true)] }).catch(() => undefined);
+      message.edit({ components: [dropButton(drop, true)] }).catch(() => undefined);
       scheduleMessageDeletion(message);
     }, Math.max(0, drop.expiresAt - now));
 
@@ -60,16 +60,28 @@ export class DropDispatcher {
           ? "The clasp is already empty."
           : result.reason === "expired"
             ? "The bag is gone."
-            : "That bag is no longer on the ledger.";
+            : result.reason === "already_joined"
+              ? "You already have a hand on that lock."
+              : "That bag is no longer on the ledger.";
       await interaction.reply({ content: message, flags: MessageFlags.Ephemeral });
-      await interaction.message.edit({ components: [dropButton(dropId, true)] }).catch(() => undefined);
-      scheduleMessageDeletion(interaction.message);
+      if (result.reason !== "already_joined") {
+        await interaction.message.edit({ components: [dropButton(dropId, true)] }).catch(() => undefined);
+        scheduleMessageDeletion(interaction.message);
+      }
+      return true;
+    }
+
+    if (!result.completed) {
+      await interaction.update({
+        embeds: [pendingDropEmbed(result.drop, result.claimants, result.claimsNeeded)],
+        components: [dropButton(result.drop)]
+      });
       return true;
     }
 
     await interaction.update({
-      embeds: [claimedDropEmbed(result.drop.amount, interaction.user.id)],
-      components: [dropButton(dropId, true)]
+      embeds: [claimedDropEmbed(result.drop, result.claimants, result.perPlayerAmount)],
+      components: [dropButton(result.drop, true)]
     });
     if (interaction.message) {
       scheduleMessageDeletion(interaction.message);

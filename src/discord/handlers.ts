@@ -1,26 +1,44 @@
 import {
+  type ButtonInteraction,
   Client,
   Events,
+  type Message,
+  type MessageCreateOptions,
   MessageFlags,
   PermissionFlagsBits,
   type ChatInputCommandInteraction,
-  type InteractionReplyOptions
+  type InteractionReplyOptions,
+  type TextBasedChannel
 } from "discord.js";
 import type { HeistRepository } from "../db/repository.js";
-import { formatDollars, nowMs } from "../game/time.js";
+import { nextSeasonModifier, type CrewRole } from "../game/engagement.js";
+import { nowMs } from "../game/time.js";
 import type { ActivityService } from "../services/activity.js";
+import type { BountyService } from "../services/bounties.js";
+import type { CaseService } from "../services/cases.js";
+import type { CrewHeistService } from "../services/crew-heists.js";
 import { containsEmojiOrCustomEmote } from "../services/activity.js";
 import type { EconomyService } from "../services/economy.js";
+import type { GazetteService } from "../services/gazette.js";
 import type { MarketService } from "../services/market.js";
 import { MarketDataError } from "../services/market-data.js";
 import type { RobberyService } from "../services/robbery.js";
 import type { SecurityService } from "../services/security.js";
-import { scheduleReplyDeletion } from "./cleanup.js";
+import { scheduleMessageDeletion, scheduleReplyDeletion } from "./cleanup.js";
 import type { DropDispatcher } from "./drop-dispatcher.js";
 import {
   attackEmbed,
   balanceEmbed,
+  bountyListEmbed,
+  bountyPlacedEmbed,
   buyEmbed,
+  caseButtons,
+  caseMenuEmbed,
+  caseResultEmbed,
+  crewHeistButtons,
+  crewHeistEmbed,
+  crewHeistResultEmbed,
+  gazetteEmbed,
   leaderboardEmbed,
   loadoutEmbed,
   marketLeaderboardEmbed,
@@ -28,6 +46,9 @@ import {
   marketSearchEmbed,
   moneyMoveEmbed,
   portfolioEmbed,
+  seasonAwardsEmbed,
+  seasonHistoryEmbed,
+  seasonStatusEmbed,
   shopEmbed,
   stockBuyEmbed,
   stockSellEmbed
@@ -36,7 +57,11 @@ import {
 export interface BotServices {
   repo: HeistRepository;
   activity: ActivityService;
+  bounties: BountyService;
+  cases: CaseService;
+  crewHeists: CrewHeistService;
   economy: EconomyService;
+  gazette: GazetteService;
   market: MarketService;
   security: SecurityService;
   robbery: RobberyService;
@@ -46,8 +71,8 @@ export interface BotServices {
 export function registerDiscordHandlers(client: Client, services: BotServices): void {
   client.once(Events.ClientReady, () => {
     console.log(`Signed in as ${client.user?.tag ?? "unknown bot"}`);
-    void schedulerTick(services);
-    setInterval(() => void schedulerTick(services), 60 * 1000);
+    void schedulerTick(client, services);
+    setInterval(() => void schedulerTick(client, services), 60 * 1000);
   });
 
   client.on(Events.MessageCreate, (message) => {
@@ -78,7 +103,17 @@ export function registerDiscordHandlers(client: Client, services: BotServices): 
     try {
       const now = nowMs();
       if (interaction.isButton()) {
-        await services.dropDispatcher.handleButton(interaction, now);
+        if (await services.dropDispatcher.handleButton(interaction, now)) {
+          return;
+        }
+        if (interaction.customId.startsWith("case:")) {
+          await handleCaseButton(interaction, services, now);
+          return;
+        }
+        if (interaction.customId.startsWith("crew:")) {
+          await handleCrewButton(interaction, services, now);
+          return;
+        }
         return;
       }
 
@@ -106,10 +141,18 @@ export function registerDiscordHandlers(client: Client, services: BotServices): 
   });
 }
 
-async function schedulerTick(services: BotServices): Promise<void> {
+async function schedulerTick(client: Client, services: BotServices): Promise<void> {
   const now = nowMs();
   for (const config of services.repo.listGuildConfigs()) {
     services.economy.applyDailyInterest(config.guildId, now);
+    const view = services.gazette.build(config.guildId, now);
+    if (view && config.dropChannelIds[0]) {
+      const channel = await client.channels.fetch(config.dropChannelIds[0]).catch(() => null);
+      if (isSendableTextChannel(channel)) {
+        await channel.send({ embeds: [gazetteEmbed(view)] });
+        services.gazette.markPosted(config.guildId, now);
+      }
+    }
   }
   await services.dropDispatcher.runScheduledDrops(now);
 }
@@ -169,6 +212,11 @@ async function handleCommand(
       return;
     }
 
+    case "case": {
+      await interaction.reply({ embeds: [caseMenuEmbed()], components: caseButtons(), flags: MessageFlags.Ephemeral });
+      return;
+    }
+
     case "shop": {
       await interaction.reply({ embeds: [shopEmbed()], flags: MessageFlags.Ephemeral });
       return;
@@ -198,6 +246,21 @@ async function handleCommand(
 
     case "heist": {
       await handleAttack(interaction, services, "heist", now);
+      return;
+    }
+
+    case "crewheist": {
+      await handleCrewHeistCommand(interaction, services, now);
+      return;
+    }
+
+    case "bounty": {
+      await handleBounty(interaction, services, now);
+      return;
+    }
+
+    case "season": {
+      await handleSeason(interaction, services, now);
       return;
     }
 
@@ -299,6 +362,90 @@ async function handleMarket(
   }
 }
 
+async function handleBounty(
+  interaction: ChatInputCommandInteraction,
+  services: BotServices,
+  now: number
+): Promise<void> {
+  const guildId = interaction.guildId!;
+  const subcommand = interaction.options.getSubcommand(true);
+  if (subcommand === "list") {
+    await replyPublic(interaction, { embeds: [bountyListEmbed(services.bounties.list(guildId, now))] });
+    return;
+  }
+
+  const target = interaction.options.getUser("target", true);
+  if (target.bot) {
+    await interaction.reply({ content: "Bot accounts do not carry bounties here.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+  const result = services.bounties.place(
+    guildId,
+    interaction.user.id,
+    target.id,
+    interaction.options.getInteger("amount", true),
+    now
+  );
+  if (!result.ok) {
+    await interaction.reply({ content: bountyFailureText(result.reason), flags: MessageFlags.Ephemeral });
+    return;
+  }
+  await replyPublic(interaction, { embeds: [bountyPlacedEmbed(result.bounty)] });
+}
+
+async function handleSeason(
+  interaction: ChatInputCommandInteraction,
+  services: BotServices,
+  now: number
+): Promise<void> {
+  const guildId = interaction.guildId!;
+  const subcommand = interaction.options.getSubcommand(true);
+  if (subcommand === "status") {
+    const season = services.repo.getCurrentSeason(guildId, now);
+    const top = services.economy.leaderboard(guildId, now, 1)[0];
+    await replyPublic(interaction, { embeds: [seasonStatusEmbed(season, top)] });
+    return;
+  }
+  if (subcommand === "history") {
+    await replyPublic(interaction, { embeds: [seasonHistoryEmbed(services.repo.listSeasons(guildId, 6))] });
+    return;
+  }
+
+  const config = services.repo.ensureGuild(guildId, now);
+  const requested = interaction.options.getInteger("id") ?? Math.max(1, config.currentSeasonId - 1);
+  const season = services.repo.getSeason(guildId, requested);
+  if (!season) {
+    await interaction.reply({ content: "That season is not on the ledger.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+  await replyPublic(interaction, { embeds: [seasonAwardsEmbed(season)] });
+}
+
+async function handleCrewHeistCommand(
+  interaction: ChatInputCommandInteraction,
+  services: BotServices,
+  now: number
+): Promise<void> {
+  const target = interaction.options.getUser("target", true);
+  if (target.bot) {
+    await interaction.reply({ content: "Bot accounts do not keep vaults here.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const result = services.crewHeists.create(interaction.guildId!, interaction.channelId, interaction.user.id, target.id, now);
+  if (!result.ok) {
+    await interaction.reply({ content: crewCreateFailureText(result.reason), flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  await interaction.reply({
+    embeds: [crewHeistEmbed(result.heist, result.members)],
+    components: crewHeistButtons(result.heist.id)
+  });
+  const message = await interaction.fetchReply();
+  services.crewHeists.attachMessage(result.heist.id, message.id);
+}
+
 async function handleAttack(
   interaction: ChatInputCommandInteraction,
   services: BotServices,
@@ -316,6 +463,75 @@ async function handleAttack(
       ? services.robbery.rob(interaction.guildId!, interaction.user.id, target.id, now)
       : services.robbery.heist(interaction.guildId!, interaction.user.id, target.id, now);
   await replyPublic(interaction, { embeds: [attackEmbed(result)] });
+}
+
+async function handleCaseButton(interaction: ButtonInteraction, services: BotServices, now: number): Promise<void> {
+  if (!interaction.guildId) {
+    await interaction.reply({ content: "This case file only opens inside a server.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const caseId = interaction.customId.slice("case:".length);
+  const result = services.cases.run(interaction.guildId, interaction.user.id, caseId, now);
+  if (!result.ok) {
+    const content =
+      result.reason === "cooldown"
+        ? "You already closed today's case file. Check back after the local day rolls over."
+        : "That case file is no longer available.";
+    await interaction.update({ content, embeds: [], components: [] });
+    return;
+  }
+
+  await interaction.update({ embeds: [caseResultEmbed(result)], components: [] });
+}
+
+async function handleCrewButton(interaction: ButtonInteraction, services: BotServices, now: number): Promise<void> {
+  const parts = interaction.customId.split(":");
+  const heistId = parts[1];
+  const action = parts[2];
+  if (!heistId || !action) {
+    await interaction.reply({ content: "That crew board is no longer readable.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (action === "join") {
+    const role = parts[3] as CrewRole | undefined;
+    if (!role) {
+      await interaction.reply({ content: "Pick a crew role.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const result = services.crewHeists.join(heistId, interaction.user.id, role, now);
+    if (!result.ok) {
+      await interaction.reply({ content: crewJoinFailureText(result.reason), flags: MessageFlags.Ephemeral });
+      if (result.reason === "expired" || result.reason === "closed") {
+        await interaction.message.edit({ components: crewHeistButtons(heistId, true) }).catch(() => undefined);
+        scheduleMessageDeletion(interaction.message);
+      }
+      return;
+    }
+    await interaction.update({
+      embeds: [crewHeistEmbed(result.heist, result.members)],
+      components: crewHeistButtons(result.heist.id)
+    });
+    return;
+  }
+
+  if (action === "launch") {
+    const result = services.crewHeists.resolve(heistId, interaction.user.id, now);
+    if (!result.ok) {
+      await interaction.reply({ content: crewResolveFailureText(result.reason), flags: MessageFlags.Ephemeral });
+      if (result.reason === "expired" || result.reason === "closed") {
+        await interaction.message.edit({ components: crewHeistButtons(heistId, true) }).catch(() => undefined);
+        scheduleMessageDeletion(interaction.message);
+      }
+      return;
+    }
+    await interaction.update({
+      embeds: [crewHeistResultEmbed(result)],
+      components: crewHeistButtons(result.heist.id, true)
+    });
+    scheduleMessageDeletion(interaction.message, 30 * 1000);
+  }
 }
 
 async function handleAdmin(
@@ -366,22 +582,22 @@ async function handleAdmin(
     case "season": {
       const action = interaction.options.getString("action", true);
       if (action === "status") {
-        const config = services.repo.ensureGuild(guildId, now);
+        const season = services.repo.getCurrentSeason(guildId, now);
         const top = services.economy.leaderboard(guildId, now, 1)[0];
         await interaction.reply({
-          content: top
-            ? `Season #${config.currentSeasonId} is open. Current leader: <@${top.userId}> at ${formatDollars(top.netWorth)}.`
-            : `Season #${config.currentSeasonId} is open. No one has entered yet.`,
+          embeds: [seasonStatusEmbed(season, top)],
           flags: MessageFlags.Ephemeral
         });
         return;
       }
 
-      const result = services.repo.startNextSeason(guildId, now);
+      const current = services.repo.ensureGuild(guildId, now);
+      const modifier = nextSeasonModifier(current.currentSeasonId + 1);
+      const result = services.repo.startNextSeason(guildId, now, modifier.id);
       await interaction.reply({
         content: result.winnerUserId
-          ? `Season closed. <@${result.winnerUserId}> takes the brass plaque. Season #${result.seasonId} is now open.`
-          : `Season closed with no winner. Season #${result.seasonId} is now open.`,
+          ? `Season closed. <@${result.winnerUserId}> takes the brass plaque. Season #${result.seasonId} opens with ${modifier.name}.`
+          : `Season closed with no winner. Season #${result.seasonId} opens with ${modifier.name}.`,
         flags: MessageFlags.Ephemeral
       });
       return;
@@ -463,6 +679,72 @@ function marketSellFailureText(
   }
 }
 
+function bountyFailureText(
+  reason: "self_target" | "target_not_enrolled" | "invalid_amount" | "insufficient_wallet"
+): string {
+  switch (reason) {
+    case "self_target":
+      return "You cannot post a bounty on yourself.";
+    case "target_not_enrolled":
+      return "That player has not entered the current season.";
+    case "invalid_amount":
+      return "Use a positive bounty amount.";
+    case "insufficient_wallet":
+      return "Your wallet is short for that bounty.";
+  }
+}
+
+function crewCreateFailureText(reason: "self_target" | "target_not_enrolled" | "no_bank_cash"): string {
+  switch (reason) {
+    case "self_target":
+      return "You cannot crew-heist yourself.";
+    case "target_not_enrolled":
+      return "That player has not entered the current season.";
+    case "no_bank_cash":
+      return "That bank account has nothing worth breaching.";
+  }
+}
+
+function crewJoinFailureText(
+  reason: "missing" | "closed" | "expired" | "target_joined" | "already_joined" | "role_taken"
+): string {
+  switch (reason) {
+    case "missing":
+      return "That crew board is gone.";
+    case "closed":
+      return "That crew job is already closed.";
+    case "expired":
+      return "That crew job expired.";
+    case "target_joined":
+      return "The target cannot join the crew.";
+    case "already_joined":
+      return "You already joined this crew.";
+    case "role_taken":
+      return "That role is already taken.";
+  }
+}
+
+function crewResolveFailureText(
+  reason: "missing" | "not_leader" | "closed" | "expired" | "short_crew" | "target_not_enrolled" | "no_bank_cash"
+): string {
+  switch (reason) {
+    case "missing":
+      return "That crew board is gone.";
+    case "not_leader":
+      return "Only the crew leader can launch this job.";
+    case "closed":
+      return "That crew job is already closed.";
+    case "expired":
+      return "That crew job expired.";
+    case "short_crew":
+      return "You need at least two crew members before launching.";
+    case "target_not_enrolled":
+      return "The target is no longer on this season's ledger.";
+    case "no_bank_cash":
+      return "That bank account has nothing worth breaching.";
+  }
+}
+
 function marketDataErrorText(error: MarketDataError): string {
   switch (error.code) {
     case "missing_key":
@@ -484,4 +766,21 @@ async function replyPublic(
 ): Promise<void> {
   await interaction.reply(options);
   scheduleReplyDeletion(interaction);
+}
+
+function isSendableTextChannel(
+  channel: unknown
+): channel is TextBasedChannel & { send(options: MessageCreateOptions): Promise<Message> } {
+  if (!channel || typeof channel !== "object") {
+    return false;
+  }
+  const candidate = channel as {
+    isTextBased?: unknown;
+    send?: unknown;
+  };
+  return (
+    typeof candidate.isTextBased === "function" &&
+    candidate.isTextBased() === true &&
+    typeof candidate.send === "function"
+  );
 }

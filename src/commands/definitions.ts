@@ -24,6 +24,8 @@ export const commandBuilders = [
     .setName("leaderboard")
     .setDescription("Show the season's richest operators."),
 
+  new SlashCommandBuilder().setName("case").setDescription("Open today's private case file."),
+
   new SlashCommandBuilder().setName("shop").setDescription("Browse security items for your loadout."),
 
   new SlashCommandBuilder()
@@ -48,6 +50,37 @@ export const commandBuilders = [
     .setName("heist")
     .setDescription("Try a capped breach against another player's bank.")
     .addUserOption((option) => option.setName("target").setDescription("Player to heist.").setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName("crewheist")
+    .setDescription("Recruit a small crew for a rare public bank job.")
+    .addUserOption((option) => option.setName("target").setDescription("Player to target.").setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName("bounty")
+    .setDescription("Place or inspect player-funded bounties.")
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("place")
+        .setDescription("Put wallet cash on a target.")
+        .addUserOption((option) => option.setName("target").setDescription("Bounty target.").setRequired(true))
+        .addIntegerOption((option) =>
+          option.setName("amount").setDescription("Wallet dollars to post.").setMinValue(1).setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) => subcommand.setName("list").setDescription("Show open bounties.")),
+
+  new SlashCommandBuilder()
+    .setName("season")
+    .setDescription("Inspect season status, history, and awards.")
+    .addSubcommand((subcommand) => subcommand.setName("status").setDescription("Show the current season."))
+    .addSubcommand((subcommand) => subcommand.setName("history").setDescription("Show recent seasons."))
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("awards")
+        .setDescription("Show awards for a closed season.")
+        .addIntegerOption((option) => option.setName("id").setDescription("Season number. Defaults to previous season."))
+    ),
 
   new SlashCommandBuilder()
     .setName("market")

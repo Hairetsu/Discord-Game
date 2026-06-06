@@ -1,5 +1,6 @@
 import type { HeistRepository, LeaderboardEntry, PlayerRecord } from "../db/repository.js";
 import { DAILY_INTEREST_CAP, DAILY_INTEREST_RATE } from "../game/constants.js";
+import { seasonModifier } from "../game/engagement.js";
 import { localDateKey } from "../game/time.js";
 
 export type MoneyResult =
@@ -88,8 +89,10 @@ export class EconomyService {
 
       let playersPaid = 0;
       let totalPaid = 0;
+      const modifier = seasonModifier(this.repo.getCurrentSeason(guildId, now).modifierId);
+      const interestCap = DAILY_INTEREST_CAP + (modifier.interestCapBonus ?? 0);
       for (const player of this.repo.listCurrentSeasonPlayers(guildId, config.currentSeasonId)) {
-        const interest = Math.min(Math.floor(player.bank * DAILY_INTEREST_RATE), DAILY_INTEREST_CAP);
+        const interest = Math.min(Math.floor(player.bank * DAILY_INTEREST_RATE), interestCap);
         if (interest <= 0) {
           continue;
         }

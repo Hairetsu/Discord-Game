@@ -8,6 +8,17 @@ Players also earn a little scratch for keeping the room alive:
 - Emoji/emote activity can pay `$2-$6` once every 5 minutes per player.
 - Reactions count as emote activity. Emoji inside message text also counts when Discord provides message content to the bot.
 
+The engagement layer keeps the game active without increasing bot spam:
+
+- `/case` gives each player one private daily job with small rewards and heat changes.
+- Money drops now have variants like locked cases, marked bills, decoys, and jackpot briefcases.
+- Robberies and heists build heat, which can lower odds and increase fines at higher bands.
+- Repeated attacker/target pairs become rivalries with public callouts once the history matters.
+- Player-funded `/bounty` posts create opt-in public conflict.
+- `/crewheist` creates one public recruiting message for a role-based group heist.
+- Seasons can carry modifiers, awards, and history.
+- The Vault Gazette posts a periodic digest instead of lots of individual announcements.
+
 ## Setup
 
 ```bash
@@ -106,11 +117,18 @@ fly secrets set --app "$APP_NAME" ALPHA_VANTAGE_API_KEY="your-alpha-vantage-key"
 - `/deposit amount`
 - `/withdraw amount`
 - `/leaderboard`
+- `/case`
 - `/shop`
 - `/buy item`
 - `/loadout`
 - `/rob target`
 - `/heist target`
+- `/crewheist target`
+- `/bounty place target amount`
+- `/bounty list`
+- `/season status`
+- `/season history`
+- `/season awards id`
 - `/market quote symbol`
 - `/market search keywords`
 - `/market buy symbol amount`

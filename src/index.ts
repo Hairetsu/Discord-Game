@@ -7,8 +7,12 @@ import { registerDiscordHandlers } from "./discord/handlers.js";
 import { loadEnv } from "./env.js";
 import { MathRandomSource } from "./game/random.js";
 import { ActivityService } from "./services/activity.js";
+import { BountyService } from "./services/bounties.js";
+import { CaseService } from "./services/cases.js";
+import { CrewHeistService } from "./services/crew-heists.js";
 import { DropService } from "./services/drops.js";
 import { EconomyService } from "./services/economy.js";
+import { GazetteService } from "./services/gazette.js";
 import { MarketService } from "./services/market.js";
 import { AlphaVantageMarketDataProvider } from "./services/market-data.js";
 import { RobberyService } from "./services/robbery.js";
@@ -29,7 +33,11 @@ const drops = new DropService(repo, random);
 const services = {
   repo,
   activity: new ActivityService(repo, random),
+  bounties: new BountyService(repo),
+  cases: new CaseService(repo, random),
+  crewHeists: new CrewHeistService(repo, random),
   economy: new EconomyService(repo),
+  gazette: new GazetteService(repo),
   market: new MarketService(repo, marketProvider),
   security: new SecurityService(repo),
   robbery: new RobberyService(repo, random),

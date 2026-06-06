@@ -3,17 +3,28 @@ import type { DropRecord, HeistRepository, PlayerRecord } from "../db/repository
 import {
   DROP_INTERVAL_MAX_MS,
   DROP_INTERVAL_MIN_MS,
-  DROP_JACKPOT,
-  DROP_JACKPOT_CHANCE,
   DROP_LIFETIME_MS,
-  DROP_MAX,
-  DROP_MIN
 } from "../game/constants.js";
+import { adjustHeat, decayHeat, randomDropVariant, seasonModifier } from "../game/engagement.js";
 import type { RandomSource } from "../game/random.js";
 
 export type ClaimDropResult =
-  | { ok: true; drop: DropRecord; player: PlayerRecord }
-  | { ok: false; reason: "missing" | "expired" | "claimed"; drop?: DropRecord };
+  | {
+      ok: true;
+      completed: true;
+      drop: DropRecord;
+      players: PlayerRecord[];
+      claimants: string[];
+      perPlayerAmount: number;
+    }
+  | {
+      ok: true;
+      completed: false;
+      drop: DropRecord;
+      claimants: string[];
+      claimsNeeded: number;
+    }
+  | { ok: false; reason: "missing" | "expired" | "claimed" | "already_joined"; drop?: DropRecord };
 
 export class DropService {
   constructor(
@@ -26,9 +37,10 @@ export class DropService {
   }
 
   createDrop(guildId: string, channelId: string, now: number): DropRecord {
-    const amount = this.random.chance(DROP_JACKPOT_CHANCE)
-      ? DROP_JACKPOT
-      : this.random.int(DROP_MIN, DROP_MAX);
+    const variant = randomDropVariant(this.random);
+    const modifier = seasonModifier(this.repo.getCurrentSeason(guildId, now).modifierId);
+    const baseAmount = this.random.int(variant.minAmount, variant.maxAmount);
+    const amount = Math.max(1, Math.floor(baseAmount * (modifier.dropMultiplier ?? 1)));
 
     const drop: DropRecord = {
       id: randomUUID(),
@@ -36,6 +48,9 @@ export class DropService {
       channelId,
       messageId: null,
       amount,
+      kind: variant.kind,
+      requiredClaims: variant.requiredClaims,
+      heatDelta: variant.heatDelta,
       claimedByUserId: null,
       createdAt: now,
       expiresAt: now + DROP_LIFETIME_MS,
@@ -62,29 +77,53 @@ export class DropService {
         return { ok: false, reason: "expired", drop };
       }
 
+      if (!this.repo.addDropClaim(dropId, userId, now)) {
+        return { ok: false, reason: "already_joined", drop };
+      }
+
+      const claims = this.repo.listDropClaims(dropId);
+      if (claims.length < drop.requiredClaims) {
+        return {
+          ok: true,
+          completed: false,
+          drop,
+          claimants: claims.map((claim) => claim.userId),
+          claimsNeeded: drop.requiredClaims - claims.length
+        };
+      }
+
       if (!this.repo.markDropClaimed(dropId, userId, now)) {
         const latest = this.repo.getDrop(dropId);
         return { ok: false, reason: latest?.claimedByUserId ? "claimed" : "expired", drop: latest };
       }
 
-      const player = this.repo.ensurePlayer(drop.guildId, userId, now);
-      player.wallet += drop.amount;
-      player.lifetimeEarned += drop.amount;
-      this.repo.savePlayer(player, now);
-      this.repo.recordTransaction({
-        guildId: drop.guildId,
-        userId,
-        seasonId: player.seasonId,
-        type: "drop_claim",
-        amount: drop.amount,
-        metadata: { dropId },
-        createdAt: now
+      const claimants = claims.slice(0, drop.requiredClaims).map((claim) => claim.userId);
+      const perPlayerAmount = Math.max(1, Math.floor(drop.amount / claimants.length));
+      const players = claimants.map((claimantId) => {
+        const player = this.repo.ensurePlayer(drop.guildId, claimantId, now);
+        player.heat = adjustHeat(decayHeat(player.heat, player.updatedAt, now), drop.heatDelta);
+        player.wallet += perPlayerAmount;
+        player.lifetimeEarned += perPlayerAmount;
+        this.repo.savePlayer(player, now);
+        this.repo.recordTransaction({
+          guildId: drop.guildId,
+          userId: claimantId,
+          seasonId: player.seasonId,
+          type: "drop_claim",
+          amount: perPlayerAmount,
+          metadata: { dropId, kind: drop.kind, heatDelta: drop.heatDelta, totalAmount: drop.amount },
+          createdAt: now
+        });
+        return player;
       });
 
       return {
         ok: true,
+        completed: true,
         drop: { ...drop, claimedByUserId: userId, claimedAt: now },
-        player
+        players,
+        claimants,
+        perPlayerAmount
       };
     });
   }
