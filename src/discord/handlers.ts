@@ -149,7 +149,8 @@ async function schedulerTick(client: Client, services: BotServices): Promise<voi
     if (view && config.dropChannelIds[0]) {
       const channel = await client.channels.fetch(config.dropChannelIds[0]).catch(() => null);
       if (isSendableTextChannel(channel)) {
-        await channel.send({ embeds: [gazetteEmbed(view)] });
+        const message = await channel.send({ embeds: [gazetteEmbed(view)] });
+        scheduleMessageDeletion(message);
         services.gazette.markPosted(config.guildId, now);
       }
     }

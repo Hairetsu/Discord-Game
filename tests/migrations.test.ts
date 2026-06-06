@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { openDatabase } from "../src/db/database.js";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { openDatabase, runMigrations } from "../src/db/database.js";
 
 describe("migrations", () => {
   it("creates the core economy tables from an empty database", () => {
@@ -22,5 +25,22 @@ describe("migrations", () => {
         "schema_migrations"
       ])
     );
+  });
+
+  it("opens filesystem databases and skips already-applied migrations", () => {
+    const directory = mkdtempSync(join(tmpdir(), "heist-bank-test-"));
+    try {
+      const path = join(directory, "nested", "test.sqlite");
+      const db = openDatabase(path);
+      const firstApplied = db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get() as { count: number };
+      runMigrations(db);
+      const secondApplied = db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get() as { count: number };
+
+      expect(firstApplied.count).toBeGreaterThan(0);
+      expect(secondApplied.count).toBe(firstApplied.count);
+      db.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

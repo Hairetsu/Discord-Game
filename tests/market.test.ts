@@ -75,6 +75,75 @@ describe("market service", () => {
     expect(portfolio.costBasisCents).toBe(20_000);
     expect(portfolio.gainLossCents).toBe(5_000);
   });
+
+  it("rejects invalid buy and sell orders", async () => {
+    const { repo, provider, market } = createMarketTestServices();
+
+    expect(await market.buy("guild", "user", "ACME", 0, 1000)).toMatchObject({
+      ok: false,
+      reason: "invalid_amount"
+    });
+    expect(await market.buy("guild", "user", "ACME", 999, 1000)).toMatchObject({
+      ok: false,
+      reason: "insufficient_wallet"
+    });
+
+    provider.priceCents = 1_000_000_000;
+    expect(await market.buy("guild", "user", "ACME", 1, 10 * 60 * 1000)).toMatchObject({
+      ok: false,
+      reason: "order_too_small"
+    });
+
+    provider.priceCents = 10_000;
+    expect(await market.sell("guild", "user", "ACME", 1, false, 20 * 60 * 1000)).toMatchObject({
+      ok: false,
+      reason: "missing_position"
+    });
+
+    const player = repo.ensurePlayer("guild", "user", 30 * 60 * 1000);
+    player.wallet = 1000;
+    repo.savePlayer(player, 30 * 60 * 1000);
+    await market.buy("guild", "user", "ACME", 100, 30 * 60 * 1000);
+
+    expect(await market.sell("guild", "user", "ACME", 0, false, 40 * 60 * 1000)).toMatchObject({
+      ok: false,
+      reason: "invalid_shares"
+    });
+    expect(await market.sell("guild", "user", "ACME", 999, false, 40 * 60 * 1000)).toMatchObject({
+      ok: false,
+      reason: "insufficient_shares"
+    });
+
+    provider.priceCents = 1;
+    expect(await market.sell("guild", "user", "ACME", 0.000001, false, 50 * 60 * 1000)).toMatchObject({
+      ok: false,
+      reason: "order_too_small"
+    });
+  });
+
+  it("searches symbols and builds a market leaderboard", async () => {
+    const { market } = createMarketTestServices();
+    await market.buy("guild", "one", "ACME", 100, 1000);
+    await market.buy("guild", "two", "ACME", 200, 1000);
+
+    await expect(market.search("acme")).resolves.toEqual([
+      { symbol: "ACME", name: "Acme Markets", region: "United States", currency: "USD" }
+    ]);
+    await expect(market.leaderboard("guild", 2000)).resolves.toEqual([
+      { userId: "two", stockValueCents: 20_000 },
+      { userId: "one", stockValueCents: 10_000 }
+    ]);
+  });
+
+  it("removes a stock holding when selling the full position", async () => {
+    const { repo, market } = createMarketTestServices();
+
+    await market.buy("guild", "user", "ACME", 100, 1000);
+    const sell = await market.sell("guild", "user", "ACME", undefined, true, 2000);
+
+    expect(sell.ok && sell.holding).toBeUndefined();
+    expect(repo.getStockHolding("guild", "user", 1, "ACME")).toBeUndefined();
+  });
 });
 
 describe("alpha vantage market data provider", () => {
@@ -100,5 +169,87 @@ describe("alpha vantage market data provider", () => {
     expect(quote.changeCents).toBe(-123);
     expect(quote.changePercent).toBe(-0.99);
     expect(quote.volume).toBe(98765);
+  });
+
+  it("parses symbol search responses and filters unusable matches", async () => {
+    const provider = new AlphaVantageMarketDataProvider("key", async () => ({
+      async json() {
+        return {
+          bestMatches: [
+            {
+              "1. symbol": "ibm",
+              "2. name": "International Business Machines",
+              "4. region": "United States",
+              "8. currency": "USD"
+            },
+            { "1. symbol": "BAD" },
+            "not-object",
+            {
+              "1. symbol": "spy",
+              "2. name": "SPDR S&P 500 ETF Trust"
+            }
+          ]
+        };
+      }
+    }));
+
+    await expect(provider.search("ib")).resolves.toEqual([
+      {
+        symbol: "IBM",
+        name: "International Business Machines",
+        region: "United States",
+        currency: "USD"
+      },
+      {
+        symbol: "SPY",
+        name: "SPDR S&P 500 ETF Trust",
+        region: "Unknown",
+        currency: "Unknown"
+      }
+    ]);
+  });
+
+  it("throws typed errors for invalid market data states", async () => {
+    await expect(new AlphaVantageMarketDataProvider(undefined).quote("AAPL")).rejects.toMatchObject({
+      code: "missing_key"
+    });
+    await expect(new AlphaVantageMarketDataProvider("key").search("a")).rejects.toMatchObject({
+      code: "invalid_symbol"
+    });
+    await expect(new AlphaVantageMarketDataProvider("key").quote("bad symbol")).rejects.toMatchObject({
+      code: "invalid_symbol"
+    });
+
+    await expect(
+      new AlphaVantageMarketDataProvider("key", async () => ({
+        async json() {
+          return [];
+        }
+      })).quote("AAPL")
+    ).rejects.toMatchObject({ code: "provider_error" });
+
+    await expect(
+      new AlphaVantageMarketDataProvider("key", async () => ({
+        async json() {
+          return { "Error Message": "nope" };
+        }
+      })).quote("AAPL")
+    ).rejects.toMatchObject({ code: "not_found" });
+
+    await expect(
+      new AlphaVantageMarketDataProvider("key", async () => ({
+        async json() {
+          return { Note: "slow down" };
+        }
+      })).quote("AAPL")
+    ).rejects.toMatchObject({ code: "rate_limited" });
+
+    await expect(
+      new AlphaVantageMarketDataProvider("key", async () => ({
+        async json() {
+          return { "Global Quote": { "05. price": "0" } };
+        }
+      })).quote("AAPL")
+    ).rejects.toMatchObject({ code: "not_found" });
   });
 });

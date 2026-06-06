@@ -83,6 +83,55 @@ describe("robbery service", () => {
     expect(result).toMatchObject({ ok: false, reason: "target_not_enrolled" });
   });
 
+  it("refuses self-targets, empty targets, cooldowns, and heist lockouts", () => {
+    const { repo, robbery } = createTestServices(new SequenceRandomSource([0]));
+    const robber = repo.ensurePlayer("guild", "robber", 1000);
+    const target = repo.ensurePlayer("guild", "target", 1000);
+
+    expect(robbery.rob("guild", "robber", "robber", 2000)).toMatchObject({
+      ok: false,
+      reason: "self_target"
+    });
+
+    target.wallet = 0;
+    target.bank = 0;
+    repo.savePlayer(target, 1000);
+    expect(robbery.rob("guild", "robber", "target", 2000)).toMatchObject({
+      ok: false,
+      reason: "no_wallet_cash"
+    });
+    expect(robbery.heist("guild", "robber", "target", 2000)).toMatchObject({
+      ok: false,
+      reason: "no_bank_cash"
+    });
+
+    target.wallet = 1000;
+    target.bank = 1000;
+    robber.robCooldownUntil = 5000;
+    repo.savePlayer(robber, 1000);
+    repo.savePlayer(target, 1000);
+    expect(robbery.rob("guild", "robber", "target", 2000)).toMatchObject({
+      ok: false,
+      reason: "cooldown"
+    });
+
+    robber.robCooldownUntil = 0;
+    robber.heistLockoutUntil = 5000;
+    repo.savePlayer(robber, 1000);
+    expect(robbery.heist("guild", "robber", "target", 2000)).toMatchObject({
+      ok: false,
+      reason: "lockout"
+    });
+
+    robber.heistLockoutUntil = 0;
+    robber.heistCooldownUntil = 5000;
+    repo.savePlayer(robber, 1000);
+    expect(robbery.heist("guild", "robber", "target", 2000)).toMatchObject({
+      ok: false,
+      reason: "cooldown"
+    });
+  });
+
   it("keeps simulated rob and heist rates near configured odds with capped losses", () => {
     const { repo, robbery } = createTestServices(new LcgRandomSource(42));
     const robber = repo.ensurePlayer("guild", "robber", 1000);
