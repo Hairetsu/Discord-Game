@@ -10,7 +10,7 @@ Guiding rule: ephemeral by default, public only when another player can react to
 
 The first full engagement pass is implemented:
 
-- Daily private case files
+- Private case files on a short cooldown
 - Player titles and heat display
 - Drop variants, including locked two-player cases
 - Heat bands that affect attack odds and fines
@@ -28,7 +28,7 @@ Ship these first because they add daily reasons to play without spamming the ser
 
 ### Daily Case Files
 
-Add `/case`, a once-per-day private choice between three small jobs.
+Add `/case`, a private choice between small jobs on a short cooldown.
 
 Example case options:
 

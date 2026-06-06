@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { SECURITY_BY_ID } from "../src/game/constants.js";
+import { HEIST_COOLDOWN_MS, HEIST_LOCKOUT_MS, ROB_COOLDOWN_MS, SECURITY_BY_ID } from "../src/game/constants.js";
 import {
   adjustHeat,
   decayHeat,
@@ -10,7 +10,7 @@ import {
   securityModifiers
 } from "../src/game/engagement.js";
 import { MathRandomSource, SequenceRandomSource } from "../src/game/random.js";
-import { clamp, formatCents, formatDollars, localDateKey, nowMs, remainingSeconds } from "../src/game/time.js";
+import { clamp, formatCents, formatDollars, formatDuration, localDateKey, nowMs, remainingSeconds } from "../src/game/time.js";
 
 describe("game utilities", () => {
   it("formats money, dates, clamps, and remaining time", () => {
@@ -23,6 +23,9 @@ describe("game utilities", () => {
     expect(localDateKey(Date.UTC(2026, 0, 1, 5), "America/New_York")).toBe("2026-01-01");
     expect(remainingSeconds(2500, 1000)).toBe(2);
     expect(remainingSeconds(1000, 2500)).toBe(0);
+    expect(formatDuration(1000 + 30 * 1000, 1000)).toBe("30 seconds");
+    expect(formatDuration(1000 + 15 * 60 * 1000, 1000)).toBe("15 minutes");
+    expect(formatDuration(1000 + 60 * 60 * 1000, 1000)).toBe("1 hour");
 
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
@@ -46,6 +49,9 @@ describe("game utilities", () => {
   });
 
   it("computes heat, seasons, drops, and security modifiers", () => {
+    expect(ROB_COOLDOWN_MS).toBe(15 * 60 * 1000);
+    expect(HEIST_COOLDOWN_MS).toBe(60 * 60 * 1000);
+    expect(HEIST_LOCKOUT_MS).toBe(30 * 60 * 1000);
     expect(heatBand(0).id).toBe("clean");
     expect(heatBand(60).id).toBe("wanted");
     expect(adjustHeat(95, 20)).toBe(100);

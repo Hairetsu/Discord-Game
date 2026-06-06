@@ -1,7 +1,6 @@
 import type { HeistRepository, PlayerRecord } from "../db/repository.js";
-import { CASE_FILES, adjustHeat, decayHeat, type CaseFile } from "../game/engagement.js";
+import { CASE_COOLDOWN_MS, CASE_FILES, adjustHeat, decayHeat, type CaseFile } from "../game/engagement.js";
 import type { RandomSource } from "../game/random.js";
-import { localDateKey } from "../game/time.js";
 
 export type CaseResult =
   | {
@@ -27,10 +26,9 @@ export class CaseService {
     }
 
     return this.repo.transaction(() => {
-      const config = this.repo.ensureGuild(guildId, now);
       const player = this.repo.ensurePlayer(guildId, userId, now);
-      if (player.lastCaseAt > 0 && localDateKey(player.lastCaseAt, config.timezone) === localDateKey(now, config.timezone)) {
-        return { ok: false, reason: "cooldown", availableAt: nextLocalDay(player.lastCaseAt), player };
+      if (player.lastCaseAt > 0 && player.lastCaseAt + CASE_COOLDOWN_MS > now) {
+        return { ok: false, reason: "cooldown", availableAt: player.lastCaseAt + CASE_COOLDOWN_MS, player };
       }
 
       const reward = this.random.int(caseFile.minReward, caseFile.maxReward);
@@ -64,8 +62,4 @@ export class CaseService {
       return { ok: true, caseFile, player, reward, laundered, heatDelta: caseFile.heatDelta };
     });
   }
-}
-
-function nextLocalDay(previous: number): number {
-  return previous + 24 * 60 * 60 * 1000;
 }

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDatabase, runMigrations } from "../src/db/database.js";
+import { HeistRepository } from "../src/db/repository.js";
 
 describe("migrations", () => {
   it("creates the core economy tables from an empty database", () => {
@@ -42,5 +43,24 @@ describe("migrations", () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
+  });
+
+  it("caps old attack cooldowns when the cooldown-shortening migration runs", () => {
+    const db = openDatabase(":memory:");
+    const repo = new HeistRepository(db);
+    const player = repo.ensurePlayer("guild", "user", Date.now());
+    const farFuture = Date.now() + 10 * 60 * 60 * 1000;
+    player.robCooldownUntil = farFuture;
+    player.heistCooldownUntil = farFuture;
+    player.heistLockoutUntil = farFuture;
+    repo.savePlayer(player, Date.now());
+
+    db.prepare("DELETE FROM schema_migrations WHERE version = 5").run();
+    runMigrations(db);
+
+    const updated = repo.getPlayer("guild", "user", player.seasonId)!;
+    expect(updated.robCooldownUntil).toBeLessThanOrEqual(Date.now() + 16 * 60 * 1000);
+    expect(updated.heistCooldownUntil).toBeLessThanOrEqual(Date.now() + 61 * 60 * 1000);
+    expect(updated.heistLockoutUntil).toBeLessThanOrEqual(Date.now() + 31 * 60 * 1000);
   });
 });

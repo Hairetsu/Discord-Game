@@ -10,9 +10,10 @@ Players also earn a little scratch for keeping the room alive:
 
 The engagement layer keeps the game active without increasing bot spam:
 
-- `/case` gives each player one private daily job with small rewards and heat changes.
+- `/case` gives each player a private job on a short cooldown with small rewards and heat changes.
 - Money drops now have variants like locked cases, marked bills, decoys, and jackpot briefcases.
 - Robberies and heists build heat, which can lower odds and increase fines at higher bands.
+- Robberies cool down for 15 minutes. Heists cool down for 60 minutes, with a 30-minute failed-heist lockout.
 - Repeated attacker/target pairs become rivalries with public callouts once the history matters.
 - Player-funded `/bounty` posts create opt-in public conflict.
 - `/crewheist` creates one public recruiting message for a role-based group heist.

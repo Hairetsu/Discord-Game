@@ -28,7 +28,7 @@ export const ROB_BASE_SUCCESS = 0.45;
 export const ROB_MIN_PERCENT = 0.1;
 export const ROB_MAX_PERCENT = 0.25;
 export const ROB_MAX_STEAL = 750;
-export const ROB_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+export const ROB_COOLDOWN_MS = 15 * 60 * 1000;
 export const ROB_FAIL_FINE_RATE = 0.15;
 export const ROB_FAIL_FINE_MIN = 50;
 
@@ -36,8 +36,8 @@ export const HEIST_BASE_SUCCESS = 0.25;
 export const HEIST_MIN_PERCENT = 0.03;
 export const HEIST_MAX_PERCENT = 0.08;
 export const HEIST_MAX_STEAL = 1500;
-export const HEIST_COOLDOWN_MS = 12 * 60 * 60 * 1000;
-export const HEIST_LOCKOUT_MS = 6 * 60 * 60 * 1000;
+export const HEIST_COOLDOWN_MS = 60 * 60 * 1000;
+export const HEIST_LOCKOUT_MS = 30 * 60 * 1000;
 export const HEIST_FAIL_FINE_RATE = 0.25;
 
 export const MIN_SUCCESS_CHANCE = 0.05;

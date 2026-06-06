@@ -23,7 +23,7 @@ import {
   type SecuritySlot
 } from "../game/constants.js";
 import { CASE_FILES, CREW_ROLES, DROP_VARIANTS, heatBand, seasonModifier, type CrewRole } from "../game/engagement.js";
-import { formatCents, formatDollars, remainingSeconds } from "../game/time.js";
+import { formatCents, formatDollars, formatDuration } from "../game/time.js";
 import type { MarketQuote, MarketSymbolMatch } from "../services/market-data.js";
 import type { MarketBuyResult, MarketLeaderboardEntry, MarketSellResult, PortfolioView } from "../services/market.js";
 import type { AttackResult } from "../services/robbery.js";
@@ -517,11 +517,11 @@ function attackRefusalText(result: Extract<AttackResult, { ok: false }>): string
     case "target_not_enrolled":
       return "That player has not entered the current season.";
     case "target_shielded":
-      return `That player is under new-account protection for ${remainingSeconds(result.availableAt ?? 0, Date.now())} more seconds.`;
+      return `That player is under new-account protection for ${formatDuration(result.availableAt ?? 0, Date.now())}.`;
     case "cooldown":
-      return `Your crew is cooling off for ${remainingSeconds(result.availableAt ?? 0, Date.now())} more seconds.`;
+      return `Your crew is cooling off for ${formatDuration(result.availableAt ?? 0, Date.now())}.`;
     case "lockout":
-      return `Your heist kit is locked down for ${remainingSeconds(result.availableAt ?? 0, Date.now())} more seconds.`;
+      return `Your heist kit is locked down for ${formatDuration(result.availableAt ?? 0, Date.now())}.`;
     case "no_wallet_cash":
       return "That wallet is empty.";
     case "no_bank_cash":

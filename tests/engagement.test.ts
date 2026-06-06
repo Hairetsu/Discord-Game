@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { CASE_COOLDOWN_MS } from "../src/game/engagement.js";
 import { SequenceRandomSource } from "../src/game/random.js";
 import { roleLabel } from "../src/services/crew-heists.js";
 import { createTestServices } from "./helpers.js";
 
 describe("engagement systems", () => {
-  it("runs one private case per local day and adjusts heat", () => {
+  it("runs one private case per cooldown window and adjusts heat", () => {
     const { cases, repo } = createTestServices(new SequenceRandomSource([0]));
     const player = repo.ensurePlayer("guild", "user", Date.UTC(2026, 0, 1, 12));
     player.heat = 50;
@@ -15,8 +16,11 @@ describe("engagement systems", () => {
     expect(result.ok && result.reward).toBe(25);
     expect(result.ok && result.player.heat).toBe(24);
 
-    const cooldown = cases.run("guild", "user", "quiet_pickup", Date.UTC(2026, 0, 1, 14));
+    const cooldown = cases.run("guild", "user", "quiet_pickup", Date.UTC(2026, 0, 1, 13) + CASE_COOLDOWN_MS - 1);
     expect(cooldown).toMatchObject({ ok: false, reason: "cooldown" });
+
+    const next = cases.run("guild", "user", "quiet_pickup", Date.UTC(2026, 0, 1, 13) + CASE_COOLDOWN_MS);
+    expect(next.ok).toBe(true);
   });
 
   it("rejects unknown case files and launders wallet cash", () => {

@@ -33,3 +33,16 @@ export function localDateKey(timestamp: number, timezone: string): string {
 export function remainingSeconds(until: number, now: number): number {
   return Math.max(0, Math.ceil((until - now) / 1000));
 }
+
+export function formatDuration(until: number, now: number): string {
+  const seconds = remainingSeconds(until, now);
+  if (seconds >= 60 * 60) {
+    const hours = Math.ceil(seconds / (60 * 60));
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  if (seconds >= 60) {
+    const minutes = Math.ceil(seconds / 60);
+    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+  return `${seconds} second${seconds === 1 ? "" : "s"}`;
+}

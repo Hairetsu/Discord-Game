@@ -12,7 +12,7 @@ import {
 } from "discord.js";
 import type { HeistRepository } from "../db/repository.js";
 import { nextSeasonModifier, type CrewRole } from "../game/engagement.js";
-import { nowMs } from "../game/time.js";
+import { formatDuration, nowMs } from "../game/time.js";
 import type { ActivityService } from "../services/activity.js";
 import type { BountyService } from "../services/bounties.js";
 import type { CaseService } from "../services/cases.js";
@@ -477,7 +477,7 @@ async function handleCaseButton(interaction: ButtonInteraction, services: BotSer
   if (!result.ok) {
     const content =
       result.reason === "cooldown"
-        ? "You already closed today's case file. Check back after the local day rolls over."
+        ? `Your case file is cooling down for ${formatDuration(result.availableAt ?? now, now)}.`
         : "That case file is no longer available.";
     await interaction.update({ content, embeds: [], components: [] });
     return;
