@@ -41,6 +41,7 @@ export class DropDispatcher {
 
     setTimeout(() => {
       message.edit({ components: [dropButton(drop.id, true)] }).catch(() => undefined);
+      scheduleMessageDeletion(message);
     }, Math.max(0, drop.expiresAt - now));
 
     return true;
@@ -61,6 +62,8 @@ export class DropDispatcher {
             ? "The bag is gone."
             : "That bag is no longer on the ledger.";
       await interaction.reply({ content: message, flags: MessageFlags.Ephemeral });
+      await interaction.message.edit({ components: [dropButton(dropId, true)] }).catch(() => undefined);
+      scheduleMessageDeletion(interaction.message);
       return true;
     }
 
