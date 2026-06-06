@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.build.json && mkdir -p dist/db/migrations && cp src/db/migrations/*.sql dist/db/migrations/",
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "start:prod": "node dist/index.js",
+    "start:prod": "node dist/register-commands.js && node dist/index.js",
     "register": "tsx src/register-commands.ts",
     "register:prod": "node dist/register-commands.js",
     "test": "vitest run",

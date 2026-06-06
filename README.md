@@ -66,15 +66,14 @@ fly secrets set --app "$APP_NAME" ALPHA_VANTAGE_API_KEY="your-alpha-vantage-key"
 
 `DISCORD_GUILD_ID` is optional, but useful while testing. `ALPHA_VANTAGE_API_KEY` is only needed for `/market` commands.
 
-Deploy and register slash commands:
+Deploy and start the bot:
 
 ```bash
 fly deploy --app "$APP_NAME" --remote-only
-fly ssh console --app "$APP_NAME" -C "npm run register:prod"
 fly logs --app "$APP_NAME"
 ```
 
-This bot is a background worker, not an HTTP service. If Fly's dashboard asks for a start command, use `npm run start:prod`. Do not configure an HTTP service or health check on port `8080`.
+Production startup runs slash-command registration before the bot logs in. This bot is a background worker, not an HTTP service. If Fly's dashboard asks for a start command, use `npm run start:prod`. Do not configure an HTTP service or health check on port `8080`.
 
 ## Deploy to Railway
 
@@ -91,6 +90,8 @@ DATABASE_PATH=/data/heist-bank.sqlite
 ```
 
 `DISCORD_GUILD_ID` is optional after testing. `ALPHA_VANTAGE_API_KEY` is only needed for `/market` commands. Do not generate a public domain or configure a healthcheck; this is a long-running Discord bot, not an HTTP service.
+
+Railway uses the Dockerfile `CMD`, which runs `npm run start:prod`. Production startup registers slash commands first, then launches the Discord worker.
 
 ## GitHub CI and Fly Deploys
 
