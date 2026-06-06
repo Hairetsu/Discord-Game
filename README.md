@@ -64,6 +64,22 @@ fly logs --app "$APP_NAME"
 
 This bot is a background worker, not an HTTP service. If Fly's dashboard asks for a start command, use `npm run start:prod`. Do not configure an HTTP service or health check on port `8080`.
 
+## Deploy to Railway
+
+Railway will use the root `Dockerfile` automatically. Create a new Railway project from this GitHub repo, then add a volume mounted at `/data`.
+
+Set these service variables:
+
+```bash
+DISCORD_TOKEN=your-discord-token
+DISCORD_CLIENT_ID=your-discord-client-id
+DISCORD_GUILD_ID=your-test-guild-id
+ALPHA_VANTAGE_API_KEY=your-alpha-vantage-key
+DATABASE_PATH=/data/heist-bank.sqlite
+```
+
+`DISCORD_GUILD_ID` is optional after testing. `ALPHA_VANTAGE_API_KEY` is only needed for `/market` commands. Do not generate a public domain or configure a healthcheck; this is a long-running Discord bot, not an HTTP service.
+
 ## GitHub CI and Fly Deploys
 
 The `.github/workflows/ci-cd.yml` workflow runs typecheck, tests, and a production build for pull requests and pushes to `master`.
