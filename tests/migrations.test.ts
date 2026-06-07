@@ -63,4 +63,17 @@ describe("migrations", () => {
     expect(updated.heistCooldownUntil).toBeLessThanOrEqual(Date.now() + 61 * 60 * 1000);
     expect(updated.heistLockoutUntil).toBeLessThanOrEqual(Date.now() + 31 * 60 * 1000);
   });
+
+  it("resets existing player heat when the heat reset migration runs", () => {
+    const db = openDatabase(":memory:");
+    const repo = new HeistRepository(db);
+    const player = repo.ensurePlayer("guild", "user", Date.now());
+    player.heat = 72;
+    repo.savePlayer(player, Date.now());
+
+    db.prepare("DELETE FROM schema_migrations WHERE version = 6").run();
+    runMigrations(db);
+
+    expect(repo.getPlayer("guild", "user", player.seasonId)?.heat).toBe(0);
+  });
 });

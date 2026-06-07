@@ -14,7 +14,7 @@ describe("engagement systems", () => {
     const result = cases.run("guild", "user", "stakeout", Date.UTC(2026, 0, 1, 13));
     expect(result.ok).toBe(true);
     expect(result.ok && result.reward).toBe(25);
-    expect(result.ok && result.player.heat).toBe(24);
+    expect(result.ok && result.player.heat).toBe(8);
 
     const cooldown = cases.run("guild", "user", "quiet_pickup", Date.UTC(2026, 0, 1, 13) + CASE_COOLDOWN_MS - 1);
     expect(cooldown).toMatchObject({ ok: false, reason: "cooldown" });

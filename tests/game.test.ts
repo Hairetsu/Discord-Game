@@ -58,8 +58,8 @@ describe("game utilities", () => {
     expect(adjustHeat(5, -20)).toBe(0);
     expect(decayHeat(50, 1000, 1000)).toBe(50);
     expect(decayHeat(0, 1000, 10_000_000)).toBe(0);
-    expect(decayHeat(50, 1000, 1000 + 30 * 60 * 1000)).toBe(50);
-    expect(decayHeat(50, 1000, 1000 + 2 * 60 * 60 * 1000)).toBe(34);
+    expect(decayHeat(50, 1000, 1000 + 30 * 60 * 1000)).toBe(38);
+    expect(decayHeat(50, 1000, 1000 + 2 * 60 * 60 * 1000)).toBe(2);
 
     expect(randomDropVariant(new SequenceRandomSource([0])).kind).toBe("cash_bag");
     expect(randomDropVariant(new SequenceRandomSource([0.999999])).kind).toBe("jackpot_briefcase");

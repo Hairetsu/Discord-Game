@@ -2,7 +2,7 @@ import type { SecurityItem } from "./constants.js";
 import type { RandomSource } from "./random.js";
 
 export const HEAT_MAX = 100;
-export const HEAT_DECAY_PER_HOUR = 8;
+export const HEAT_DECAY_PER_HOUR = 24;
 export const ROB_HEAT_GAIN = 8;
 export const HEIST_HEAT_GAIN = 18;
 export const CREW_HEIST_HEAT_GAIN = 22;
@@ -233,11 +233,11 @@ export function decayHeat(heat: number, previousUpdatedAt: number, now: number):
   if (heat <= 0 || previousUpdatedAt >= now) {
     return heat;
   }
-  const hours = Math.floor((now - previousUpdatedAt) / (60 * 60 * 1000));
-  if (hours <= 0) {
+  const decay = Math.floor(((now - previousUpdatedAt) * HEAT_DECAY_PER_HOUR) / (60 * 60 * 1000));
+  if (decay <= 0) {
     return heat;
   }
-  return adjustHeat(heat, -hours * HEAT_DECAY_PER_HOUR);
+  return adjustHeat(heat, -decay);
 }
 
 export function randomDropVariant(random: RandomSource): DropVariant {
