@@ -300,7 +300,10 @@ export function shopEmbed(): EmbedBuilder {
   const fields = SECURITY_SLOTS.map((slot) => ({
     name: slotLabel(slot),
     value: SECURITY_ITEMS.filter((item) => item.slot === slot)
-      .map((item) => `**${item.name}** - ${formatDollars(item.cost)}\n${item.description}\n\`${item.id}\``)
+      .map(
+        (item) =>
+          `**${item.name}** - ${formatDollars(item.cost)}\nEffect: ${item.description}\nBuy code: \`${item.id}\``
+      )
       .join("\n\n"),
     inline: false
   }));
@@ -326,7 +329,10 @@ export function buyEmbed(item: SecurityItem, player: PlayerRecord): EmbedBuilder
     .setColor(NOIR.green)
     .setTitle("Security Installed")
     .setDescription(`**${item.name}** is now watching the ${slotLabel(item.slot).toLowerCase()}.`)
-    .addFields({ name: "Wallet", value: formatDollars(player.wallet), inline: true });
+    .addFields(
+      { name: "Effect", value: item.description, inline: false },
+      { name: "Wallet", value: formatDollars(player.wallet), inline: true }
+    );
 }
 
 export function dropEmbed(drop: DropRecord): EmbedBuilder {

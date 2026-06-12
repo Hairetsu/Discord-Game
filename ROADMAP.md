@@ -1,4 +1,4 @@
-# Engagement Roadmap
+# Roadmap: Street Supply and Surveillance
 
 ## North Star
 
@@ -6,270 +6,165 @@ Make the bot feel like a living Discord crime economy without increasing noise. 
 
 Guiding rule: ephemeral by default, public only when another player can react to it.
 
-## Implementation Status
+## Not Done Yet
 
-The first full engagement pass is implemented:
+The first engagement pass is already implemented. This roadmap only tracks the next unfinished expansion:
 
-- Private case files on a short cooldown
-- Player titles and heat display
-- Drop variants, including locked two-player cases
-- Heat bands that affect attack odds and fines
-- Rivalry tracking and callouts
-- Player-funded bounties
-- Role-based crew heists
-- Season modifiers, awards, and history
-- Scheduled Vault Gazette digest
+- Drug selling and contraband inventory.
+- Powered cameras and private footage.
+- Surveillance shop items.
+- Admin tuning for drugs, cameras, and public bust thresholds.
 
-Future tuning should focus on live balance values, copy variety, and server-specific cadence.
+Keep the same product rule as the engagement pass: private by default, public only when another player can react.
 
-## Phase 1: Engagement Spine
+## Phase 1: Drug Selling
 
-Ship these first because they add daily reasons to play without spamming the server.
+Add a contraband side hustle for players who want higher cash generation with higher risk.
 
-### Daily Case Files
+### Core Commands
 
-Add `/case`, a private choice between small jobs on a short cooldown.
+- `/drug buy type amount`: buy product from a supplier using wallet cash.
+- `/drug sell type amount`: sell product for variable profit.
+- `/drug stash`: privately inspect inventory, street value, and risk.
+- `/drug prices`: show current street prices and demand bands.
 
-Example case options:
+### Buy Options
 
-- `Stakeout`: low payout, reduces heat.
-- `Quick Launder`: converts wallet cash into slightly safer bank cash.
-- `Market Tip`: small chance at a stock-related bonus.
-- `Quiet Pickup`: simple modest cash reward.
-- `Inside Whisper`: improves the next robbery or heist odds slightly.
+Every buy option should have a memorable name, a visible price range, and a short "what it does" description in `/drug prices` and `/drug buy`.
 
-Design goals:
+- `Corner Candy`: cheap starter stash. Low profit, low heat, and the safest sell option for new players.
+- `Blue Static`: mid-tier party supply. Better profit than Corner Candy, but each sale adds more heat.
+- `Neon Ghost Vials`: expensive, volatile stash. Can spike hard during high demand, but busts confiscate more inventory.
+- `Velvet Brick`: bulk dealer package. Best profit per command, but large sales raise raid chance and can trigger public busts.
+- `Midnight Samples`: rare rotating special. Small inventory cap, high resale multiplier, and extra heat on every sale.
 
-- Reply ephemerally.
-- Give players meaningful but quick choices.
-- Avoid creating extra public messages.
-- Let case outcomes reinforce the noir/heist fantasy.
+### Selling Rules
 
-### Player Titles
+- Buying product removes wallet cash and creates inventory.
+- Selling product pays wallet cash and adds heat.
+- Each product should explain its profit profile, heat gain, and bust risk before purchase.
+- Prices rotate on a timer so players have a reason to check in.
+- Larger sales have better profit but higher raid chance.
+- Failed sales can confiscate part of the stash, fine wallet cash, or add heat.
+- Selling should be private unless a dramatic bust, bounty tie-in, or server-configured broadcast threshold is met.
 
-Add cosmetic titles based on behavior and season stats.
+### Balance Targets
 
-Example titles:
+- Drug selling should beat chat rewards and normal drops when managed well.
+- It should be less safe than banking, markets, or quiet case files.
+- Heat from drug sales should make robberies, heists, and fines more dangerous.
+- Inventory should reset at season close unless the season modifier says otherwise.
 
-- `The Locksmith`: successful heists.
-- `Cold Ledger`: high bank balance.
-- `Dividend Shark`: strong market gains.
-- `Brass Knuckles`: repeated successful robberies.
-- `The Ghost`: strong success rate with few failures.
-- `Vault Rat`: frequent drop claims.
+### Data Model
 
-Display titles in:
+- `contraband_inventory`: guild, user, season, product id, quantity, average cost, updated time.
+- `contraband_market`: guild, season, product id, demand band, buy price, sell price, expires time.
+- New transaction types: `drug_buy`, `drug_sale`, `drug_bust`, `drug_confiscated`.
 
-- `/balance`
-- `/leaderboard`
-- Robbery and heist embeds
-- Season recap embeds
+### Implementation Notes
 
-### Flavor Rotation
+- Reuse the existing transaction ledger for all cash movement.
+- Reuse heat bands so drug risk affects the rest of the game instead of becoming an isolated minigame.
+- Add focused tests for price rotation, wallet validation, stash changes, bust penalties, and season reset behavior.
 
-Rotate copy for repeated events so the bot feels less mechanical.
+## Phase 2: Powered Cameras
 
-Targets:
+Add camera equipment as a new defensive utility. Cameras do not stop robberies by themselves; they reveal who hit you if the system had power at the time.
 
-- Drop spawn text
-- Drop claimed text
-- Robbery success
-- Robbery failure
-- Heist success
-- Heist failure
-- Market buys and sells
-- Security purchases
+### Core Commands
 
-Keep messages short. Flavor should add character without slowing down readability.
+- `/camera status`: show installed cameras, power source, battery life, grid billing, and footage window.
+- `/camera footage`: privately list who robbed or heisted you in the last 24 hours.
+- `/camera power source`: switch between `battery` and `grid`.
+- `/camera recharge amount`: buy battery charge using wallet cash.
+- `/camera bill`: pay or inspect current grid power charges.
 
-## Phase 2: Smarter Drops
+### Camera Rules
 
-Keep drop frequency the same, but add drop variants so each one feels less predictable.
+- Cameras must be purchased from `/shop` or a future `/camera buy` command.
+- Cameras only record successful incoming robberies and heists while powered.
+- `/camera footage` shows the last 24 hours of powered recordings.
+- Footage includes attacker, attack type, stolen amount, time, and whether insurance restored anything.
+- Footage is ephemeral so revenge intel does not become automatic public drama.
+- If cameras are unpowered, the robbery still happens but no footage is recorded.
 
-### Drop Types
+### Power Sources
 
-- `Cash Bag`: current standard first-click payout.
-- `Locked Case`: requires two different players to click before it opens.
-- `Marked Bills`: bigger payout, but adds heat to the claimant.
-- `Decoy Bag`: small payout, or a tiny fine with strong flavor.
-- `Jackpot Briefcase`: rare high-value public moment.
+- `Battery`: prepaid, predictable, drains per recorded event or per hour online.
+- `Power Grid`: always-on if bills are paid, but charges a daily upkeep fee.
+- Grid bills should be paid from wallet first, then optionally bank if the user enables autopay later.
+- If grid billing fails, cameras shut off until the player pays or switches to battery.
 
-Design goals:
+### Buy Options
 
-- Same message volume as the current drop system.
-- Clear button labels.
-- Short expiration window.
-- Public only because the drop itself is already a public event.
+- `Keyhole Polaroid`: $650 install. Records the last 24 hours of successful wallet robberies while powered.
+- `Lobby Mirror Lens`: $1,200 install. Records wallet robberies and failed robbery attempts while powered.
+- `Vault Hall Camera`: $1,800 install. Records successful wallet robberies and bank heists while powered.
+- `Dead Drop Battery`: $150 recharge. Powers cameras for 24 hours of standby time or 5 recordings, whichever runs out first.
+- `Borrowed Grid Line`: $75 daily bill for robbery footage only. Stays online while bills are paid.
+- `Private Substation Tap`: $125 daily bill for robbery and heist footage. Stays online while bills are paid.
 
-## Phase 3: Heat System
+### Data Model
 
-Use heat as the main balancing layer for aggression.
+- `camera_systems`: guild, user, season, tier, power source, battery units, grid paid until, enabled, updated time.
+- `camera_recordings`: guild, user, season, attacker id, attack type, stolen amount, insurance restore, recorded at, expires at.
+- New transaction types: `camera_purchase`, `camera_battery`, `camera_grid_bill`.
 
-### Core Rules
+### Robbery Integration
 
-- Robberies increase heat slightly.
-- Heists increase heat heavily.
-- Failed jobs may increase heat more than clean jobs.
-- Heat cools down over time.
-- Higher heat raises fines, lowers success chance, or both.
-- Some `/case` options reduce heat.
+- On successful `rob` or `heist`, after transaction records are written, check the target's active camera system.
+- If powered and eligible, write one `camera_recordings` row with a 24-hour expiration.
+- If on battery, decrement battery charge.
+- If on grid, verify `grid_paid_until > now`.
+- Keep existing `robbed_wallet` and `bank_breached` transactions as the source of truth for money movement; camera recordings are the reveal layer.
 
-### Suggested Heat Bands
+## Phase 3: Security Shop Expansion
 
-- `Clean`: no modifier.
-- `Watched`: small fine increase.
-- `Wanted`: lower attack odds and higher fines.
-- `Burned`: heavy fines and reduced heist odds.
+Fold cameras into the existing loadout fantasy without crowding the current slots.
 
-Design goals:
+### New Slot
 
-- Discourage repetitive attacks without hard-blocking play.
-- Make risky players visibly interesting.
-- Keep most heat details private unless relevant to a public action.
+- Add `surveillance` as a security slot separate from `vault`, `alarm`, `guard`, and `insurance`.
 
-## Phase 4: Social Drama
+### Shop Items
 
-Add player-driven public moments that create stories without automated chatter.
+- `Keyhole Polaroid`: starter surveillance that records successful wallet robberies when battery-powered.
+- `Lobby Mirror Lens`: mid-tier surveillance that records successful robberies and failed robbery attempts.
+- `Vault Hall Camera`: premium surveillance that records successful wallet robberies and bank heists.
+- `Dead Drop Battery`: consumable camera power for players who want fixed costs.
+- `Borrowed Grid Line`: daily robbery-only camera power for players who want always-on coverage.
+- `Private Substation Tap`: daily robbery and heist camera power for high-value targets.
+- `Signal Scrambler`: optional attacker item later, gives a small chance to avoid camera recording.
 
-### Rivalries
+### Purchase UX
 
-Track repeated attacker and target pairs during a season.
+- `/shop` should group buy options by slot and show price, effect, upkeep, and buy code.
+- `/buy item` choices should include a compact effect in the option label when Discord limits prevent separate descriptions.
+- Purchase confirmations should repeat what the item does so players understand the impact immediately.
 
-Use rivalry data to add flavor:
+### Design Goals
 
-- "A familiar grudge returns."
-- "This account has been cracked before."
-- "The payback job finally hits the ledger."
+- Cameras should create revenge decisions, not passive punishment.
+- Defenders pay ongoing upkeep for better information.
+- Attackers can still play aggressively, but repeat attacks become easier to identify.
+- Camera footage should tie naturally into bounties and rivalries.
 
-Optional mechanics:
+## Phase 4: Admin Tuning
 
-- Small revenge odds bump after being robbed or heisted.
-- Small bonus when striking back within a time window.
-- Rivalry callouts in attack embeds only after meaningful history exists.
+Give server owners control over how sharp these systems are.
 
-### Bounties
+### Admin Settings
 
-Add `/bounty target amount`.
+- Enable or disable drug selling.
+- Set drug price volatility.
+- Set public bust threshold.
+- Enable or disable cameras.
+- Set camera footage window, defaulting to 24 hours.
+- Set battery and grid costs.
 
-Rules:
+### Testing and Rollout
 
-- The bounty comes from the issuer's wallet.
-- The bounty pays out when another player successfully robs or heists the target.
-- Bounties expire after a set time.
-- Bounty placement is public because the player intentionally creates the drama.
-
-Design goals:
-
-- Make conflict opt-in.
-- Prevent griefing with caps and expirations.
-- Avoid ping storms or repeated reminder posts.
-
-## Phase 5: Crew Heists
-
-Build this after heat, rivalries, and bounties are stable.
-
-### Flow
-
-1. A player runs `/crewheist target`.
-2. The bot posts one public opt-in embed with buttons.
-3. Players join roles such as `Driver`, `Lookout`, `Lockpick`, and `Inside Person`.
-4. The heist resolves after enough players join or a short timer expires.
-5. Rewards and fines split across the crew.
-
-### Role Ideas
-
-- `Driver`: reduces failure fine.
-- `Lookout`: improves odds.
-- `Lockpick`: increases max steal.
-- `Inside Person`: reduces target security effect.
-
-Design goals:
-
-- Make crew heists rare and memorable.
-- Use long cooldowns.
-- Keep the flow to one public setup message and one public result message.
-
-## Phase 6: Season Identity
-
-Make each season feel different.
-
-### Season Modifiers
-
-Examples:
-
-- `Blackout Season`: heists are slightly easier.
-- `Banker's Moon`: interest cap is higher.
-- `Street Heat`: failed attacks cost more.
-- `Bull Run`: market leaderboard matters more.
-- `Loose Floorboards`: drops are slightly more valuable.
-
-### Season Awards
-
-At season close, record awards such as:
-
-- Richest player
-- Best thief
-- Biggest heist
-- Worst luck
-- Most fortified vault
-- Market winner
-- Most wanted
-
-### History
-
-Keep lightweight season history available through an admin or public command.
-
-Potential command:
-
-- `/season history`
-- `/season awards`
-
-## Phase 7: Vault Gazette
-
-Add one scheduled digest post that summarizes recent activity.
-
-### Digest Cadence
-
-Use weekly by default. Daily can work for very active servers.
-
-### Gazette Sections
-
-- Richest operator
-- Biggest heist
-- Biggest failed job
-- Top market move
-- Most wanted player
-- Biggest drop claim
-- Current season modifier
-- New rivalry to watch
-
-Design goals:
-
-- One message with high signal.
-- No individual event spam.
-- Make the game feel alive even when players miss events.
-
-## Recommended Build Order
-
-1. `/case`
-2. Player titles
-3. Flavor rotation
-4. Drop variants
-5. Heat system
-6. Rivalries
-7. Bounties
-8. Vault Gazette
-9. Crew heists
-10. Season modifiers
-11. Season awards and history
-
-## First Milestone
-
-The first implementation milestone should include:
-
-- `/case`
-- Player titles
-- Flavor rotation
-- Drop variants
-
-This gives the largest engagement lift with the least complexity. It also keeps the anti-spam posture intact because most of the new interaction is private or reuses existing public moments.
+- Ship drug selling first behind admin enablement.
+- Ship camera purchase and battery power next.
+- Add grid power and daily billing after battery behavior is stable.
+- Add admin tuning last, once default balance values have real server feedback.
