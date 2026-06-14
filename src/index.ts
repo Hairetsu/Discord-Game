@@ -8,8 +8,10 @@ import { loadEnv } from "./env.js";
 import { MathRandomSource } from "./game/random.js";
 import { ActivityService } from "./services/activity.js";
 import { BountyService } from "./services/bounties.js";
+import { CameraService } from "./services/cameras.js";
 import { CaseService } from "./services/cases.js";
 import { CrewHeistService } from "./services/crew-heists.js";
+import { DrugService } from "./services/drugs.js";
 import { DropService } from "./services/drops.js";
 import { EconomyService } from "./services/economy.js";
 import { GazetteService } from "./services/gazette.js";
@@ -30,17 +32,20 @@ const client = new Client({
 });
 
 const drops = new DropService(repo, random);
+const cameras = new CameraService(repo);
 const services = {
   repo,
   activity: new ActivityService(repo, random),
   bounties: new BountyService(repo),
+  cameras,
   cases: new CaseService(repo, random),
   crewHeists: new CrewHeistService(repo, random),
+  drugs: new DrugService(repo, random),
   economy: new EconomyService(repo),
   gazette: new GazetteService(repo),
   market: new MarketService(repo, marketProvider),
   security: new SecurityService(repo),
-  robbery: new RobberyService(repo, random),
+  robbery: new RobberyService(repo, random, cameras),
   dropDispatcher: new DropDispatcher(client, repo, drops)
 };
 

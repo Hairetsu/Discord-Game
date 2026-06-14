@@ -23,6 +23,10 @@ describe("migrations", () => {
         "transactions",
         "stock_positions",
         "stock_quote_cache",
+        "contraband_inventory",
+        "contraband_market",
+        "camera_systems",
+        "camera_recordings",
         "schema_migrations"
       ])
     );

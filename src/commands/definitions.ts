@@ -1,5 +1,5 @@
 import { ChannelType, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { SECURITY_ITEMS } from "../game/constants.js";
+import { CONTRABAND_PRODUCTS, SECURITY_ITEMS } from "../game/constants.js";
 
 export const commandBuilders = [
   new SlashCommandBuilder()
@@ -45,6 +45,96 @@ export const commandBuilders = [
     ),
 
   new SlashCommandBuilder().setName("loadout").setDescription("Inspect your active security loadout."),
+
+  new SlashCommandBuilder()
+    .setName("drug")
+    .setDescription("Buy, sell, and inspect contraband street supply.")
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("prices")
+        .setDescription("Show current contraband prices and what each stash does.")
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("stash")
+        .setDescription("Privately inspect your contraband inventory.")
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("buy")
+        .setDescription("Buy product from a supplier using wallet cash.")
+        .addStringOption((option) =>
+          option
+            .setName("type")
+            .setDescription("Product type. Each choice explains the risk.")
+            .setRequired(true)
+            .addChoices(
+              ...CONTRABAND_PRODUCTS.map((product) => ({
+                name: `${product.name}: ${product.buyMenuEffect}`,
+                value: product.id
+              }))
+            )
+        )
+        .addIntegerOption((option) =>
+          option.setName("amount").setDescription("Units to buy.").setMinValue(1).setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("sell")
+        .setDescription("Sell product for wallet cash with heat and bust risk.")
+        .addStringOption((option) =>
+          option
+            .setName("type")
+            .setDescription("Product type.")
+            .setRequired(true)
+            .addChoices(
+              ...CONTRABAND_PRODUCTS.map((product) => ({
+                name: `${product.name}: ${product.buyMenuEffect}`,
+                value: product.id
+              }))
+            )
+        )
+        .addIntegerOption((option) =>
+          option.setName("amount").setDescription("Units to sell.").setMinValue(1).setRequired(true)
+        )
+    ),
+
+  new SlashCommandBuilder()
+    .setName("camera")
+    .setDescription("Manage powered surveillance and private footage.")
+    .addSubcommand((subcommand) => subcommand.setName("status").setDescription("Show camera tier, power, and costs."))
+    .addSubcommand((subcommand) =>
+      subcommand.setName("footage").setDescription("Privately list powered recordings from the last 24 hours.")
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("power")
+        .setDescription("Switch camera power source.")
+        .addStringOption((option) =>
+          option
+            .setName("source")
+            .setDescription("Power source.")
+            .setRequired(true)
+            .addChoices({ name: "Battery: prepaid packs, drains per recording.", value: "battery" }, { name: "Grid: daily bill, online while paid.", value: "grid" })
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("recharge")
+        .setDescription("Buy battery packs for camera power.")
+        .addIntegerOption((option) =>
+          option.setName("packs").setDescription("Battery packs to buy.").setMinValue(1).setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("bill")
+        .setDescription("Pay grid power bills for camera coverage.")
+        .addIntegerOption((option) =>
+          option.setName("days").setDescription("Days of grid power to buy. Defaults to 1.").setMinValue(1)
+        )
+    ),
 
   new SlashCommandBuilder()
     .setName("rob")
@@ -187,6 +277,43 @@ export const commandBuilders = [
             .setDescription("Season action.")
             .setRequired(true)
             .addChoices({ name: "status", value: "status" }, { name: "close", value: "close" })
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("features")
+        .setDescription("Enable or disable drug selling and cameras.")
+        .addStringOption((option) =>
+          option
+            .setName("feature")
+            .setDescription("Feature to change.")
+            .setRequired(true)
+            .addChoices({ name: "Drug selling", value: "drugs" }, { name: "Cameras", value: "cameras" })
+        )
+        .addBooleanOption((option) =>
+          option.setName("enabled").setDescription("Whether this feature is enabled.").setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("tuning")
+        .setDescription("Tune drug and camera economy values.")
+        .addStringOption((option) =>
+          option
+            .setName("setting")
+            .setDescription("Setting to tune.")
+            .setRequired(true)
+            .addChoices(
+              { name: "Drug price volatility", value: "drug_volatility" },
+              { name: "Public bust threshold", value: "public_bust_threshold" },
+              { name: "Camera footage window hours", value: "camera_window_hours" },
+              { name: "Battery pack cost", value: "battery_cost" },
+              { name: "Grid robbery daily cost", value: "grid_robbery_cost" },
+              { name: "Grid full daily cost", value: "grid_full_cost" }
+            )
+        )
+        .addNumberOption((option) =>
+          option.setName("value").setDescription("New numeric value.").setMinValue(0).setRequired(true)
         )
     )
 ];

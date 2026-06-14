@@ -20,6 +20,7 @@ import {
 import { HEIST_HEAT_GAIN, ROB_HEAT_GAIN, adjustHeat, decayHeat, heatBand, seasonModifier, securityModifiers } from "../game/engagement.js";
 import type { RandomSource } from "../game/random.js";
 import { clamp } from "../game/time.js";
+import type { CameraService } from "./cameras.js";
 
 type AttackKind = "rob" | "heist";
 
@@ -66,7 +67,8 @@ export type AttackResult =
 export class RobberyService {
   constructor(
     private readonly repo: HeistRepository,
-    private readonly random: RandomSource
+    private readonly random: RandomSource,
+    private readonly cameras?: CameraService
   ) {}
 
   rob(guildId: string, robberId: string, targetId: string, now: number): AttackResult {
@@ -134,6 +136,19 @@ export class RobberyService {
         result.ok && result.success ? result.stolen : 0,
         now
       );
+      if (result.ok) {
+        this.cameras?.recordAttack({
+          guildId,
+          seasonId: target.seasonId,
+          targetUserId: target.userId,
+          attackerUserId: robber.userId,
+          attackType: kind,
+          success: result.success,
+          stolenAmount: result.success ? result.stolen : 0,
+          insuranceRestore: result.success && result.kind === "heist" ? result.insuranceRestore : 0,
+          now
+        });
+      }
       return { ...result, rivalry };
     });
   }

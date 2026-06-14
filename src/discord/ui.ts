@@ -31,6 +31,14 @@ import type { CaseResult } from "../services/cases.js";
 import type { ResolveCrewHeistResult } from "../services/crew-heists.js";
 import { roleLabel } from "../services/crew-heists.js";
 import type { GazetteView } from "../services/gazette.js";
+import type {
+  CameraBillResult,
+  CameraFootageView,
+  CameraPowerResult,
+  CameraRechargeResult,
+  CameraStatusView
+} from "../services/cameras.js";
+import type { DrugBuyResult, DrugPricesView, DrugSellResult, DrugStashView } from "../services/drugs.js";
 
 export function dropButton(drop: DropRecord | string, disabled = false): ActionRowBuilder<ButtonBuilder> {
   const dropId = typeof drop === "string" ? drop : drop.id;
@@ -335,6 +343,150 @@ export function buyEmbed(item: SecurityItem, player: PlayerRecord): EmbedBuilder
     );
 }
 
+export function drugPricesEmbed(view: DrugPricesView): EmbedBuilder {
+  const fields = view.entries.map(({ product, market }) => ({
+    name: `${product.name} - ${demandLabel(market.demandBand)}`,
+    value: `Buy ${formatDollars(market.buyPrice)} / Sell ${formatDollars(market.sellPrice)} per unit\n${product.description}`,
+    inline: false
+  }));
+  return new EmbedBuilder()
+    .setColor(view.enabled ? NOIR.brass : NOIR.smoke)
+    .setTitle("Street Supply Prices")
+    .setDescription(
+      view.enabled
+        ? `Prices rotate <t:${Math.floor(view.expiresAt / 1000)}:R>.`
+        : "Drug selling is disabled by an admin."
+    )
+    .addFields(fields);
+}
+
+export function drugStashEmbed(view: DrugStashView): EmbedBuilder {
+  const fields = view.entries.length
+    ? view.entries.map((entry) => ({
+        name: entry.product.name,
+        value: `${entry.inventory.quantity} units, avg cost ${formatDollars(entry.inventory.averageCost)}\nEstimated resale: ${formatDollars(entry.estimatedValue)}`,
+        inline: false
+      }))
+    : [{ name: "Empty", value: "No contraband in the stash.", inline: false }];
+  return new EmbedBuilder()
+    .setColor(view.enabled ? NOIR.brass : NOIR.smoke)
+    .setTitle("Private Stash")
+    .setDescription(`Estimated street value: **${formatDollars(view.totalEstimatedValue)}**.`)
+    .addFields(fields);
+}
+
+export function drugBuyEmbed(result: Extract<DrugBuyResult, { ok: true }>): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(NOIR.green)
+    .setTitle("Supply Bought")
+    .setDescription(
+      `Bought **${result.quantity}x ${result.product.name}** for **${formatDollars(result.totalCost)}**.\n${result.product.description}`
+    )
+    .addFields(
+      { name: "Stash", value: `${result.inventory.quantity} units`, inline: true },
+      { name: "Wallet", value: formatDollars(result.player.wallet), inline: true }
+    );
+}
+
+export function drugSellEmbed(result: Extract<DrugSellResult, { ok: true }>): EmbedBuilder {
+  if (result.busted) {
+    return new EmbedBuilder()
+      .setColor(NOIR.red)
+      .setTitle("Street Sale Busted")
+      .setDescription(
+        `The sale of **${result.quantity}x ${result.product.name}** got burned. You paid **${formatDollars(
+          result.fine
+        )}** and lost **${result.confiscated} units**.`
+      )
+      .addFields(
+        { name: "Confiscated Value", value: formatDollars(result.confiscatedValue), inline: true },
+        { name: "Heat", value: `${heatBand(result.player.heat).label} (+${result.heatGain})`, inline: true },
+        { name: "Wallet", value: formatDollars(result.player.wallet), inline: true }
+      );
+  }
+
+  return new EmbedBuilder()
+    .setColor(NOIR.green)
+    .setTitle("Street Sale Closed")
+    .setDescription(`Sold **${result.quantity}x ${result.product.name}** for **${formatDollars(result.payout)}**.`)
+    .addFields(
+      { name: "Heat", value: `${heatBand(result.player.heat).label} (+${result.heatGain})`, inline: true },
+      { name: "Wallet", value: formatDollars(result.player.wallet), inline: true }
+    );
+}
+
+export function cameraStatusEmbed(view: CameraStatusView): EmbedBuilder {
+  const system = view.system;
+  const fields: APIEmbedField[] = [
+    { name: "Power", value: view.powerSummary, inline: false },
+    { name: "Battery Pack", value: `${formatDollars(view.batteryPackCost)} for 5 recordings / 24h standby`, inline: true },
+    { name: "Grid Daily", value: formatDollars(view.gridDailyCost), inline: true },
+    { name: "Footage Window", value: formatDuration(Date.now() + view.footageWindowMs, Date.now()), inline: true }
+  ];
+  if (system) {
+    fields.unshift({ name: "Installed", value: view.tierName ?? system.tier, inline: false });
+  }
+  return new EmbedBuilder()
+    .setColor(view.enabled && view.powerOnline ? NOIR.green : NOIR.smoke)
+    .setTitle("Camera Status")
+    .setDescription(
+      !view.enabled
+        ? "Cameras are disabled by an admin."
+        : system
+          ? "Surveillance reveals powered recordings privately."
+          : "No surveillance installed. Buy one from `/buy item`."
+    )
+    .addFields(fields);
+}
+
+export function cameraFootageEmbed(view: CameraFootageView): EmbedBuilder {
+  const lines = view.recordings.length
+    ? view.recordings.map((recording) => {
+        const action = recording.success
+          ? recording.attackType === "heist"
+            ? "heisted"
+            : "robbed"
+          : "tried to rob";
+        const amount = recording.stolenAmount > 0 ? ` for ${formatDollars(recording.stolenAmount)}` : "";
+        const restore = recording.insuranceRestore > 0 ? `, insurance restored ${formatDollars(recording.insuranceRestore)}` : "";
+        return `<@${recording.attackerUserId}> ${action} you${amount}${restore} <t:${Math.floor(recording.recordedAt / 1000)}:R>.`;
+      })
+    : ["No powered camera recordings in the current footage window."];
+  return new EmbedBuilder()
+    .setColor(NOIR.brass)
+    .setTitle("Camera Footage")
+    .setDescription(lines.join("\n"));
+}
+
+export function cameraPowerEmbed(result: Extract<CameraPowerResult, { ok: true }>): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(NOIR.green)
+    .setTitle("Camera Power Switched")
+    .setDescription(`Power source set to **${result.system.powerSource}**.`);
+}
+
+export function cameraRechargeEmbed(result: Extract<CameraRechargeResult, { ok: true }>): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(NOIR.green)
+    .setTitle("Camera Battery Recharged")
+    .setDescription(`Bought **${result.packs}** battery pack(s) for **${formatDollars(result.cost)}**.`)
+    .addFields(
+      { name: "Battery", value: `${result.system.batteryUnits} recordings left`, inline: true },
+      { name: "Wallet", value: formatDollars(result.player.wallet), inline: true }
+    );
+}
+
+export function cameraBillEmbed(result: Extract<CameraBillResult, { ok: true }>): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(NOIR.green)
+    .setTitle("Grid Bill Paid")
+    .setDescription(`Bought **${result.days}** day(s) of grid power for **${formatDollars(result.cost)}**.`)
+    .addFields(
+      { name: "Paid Until", value: `<t:${Math.floor(result.system.gridPaidUntil / 1000)}:R>`, inline: true },
+      { name: "Wallet", value: formatDollars(result.player.wallet), inline: true }
+    );
+}
+
 export function dropEmbed(drop: DropRecord): EmbedBuilder {
   const lifetimeSeconds = Math.floor(DROP_LIFETIME_MS / 1000);
   const variant = DROP_VARIANTS.find((candidate) => candidate.kind === drop.kind);
@@ -545,6 +697,23 @@ function slotLabel(slot: SecuritySlot): string {
       return "Guard";
     case "insurance":
       return "Insurance";
+    case "surveillance":
+      return "Surveillance";
+  }
+}
+
+function demandLabel(band: string): string {
+  switch (band) {
+    case "cold":
+      return "Cold Demand";
+    case "steady":
+      return "Steady Demand";
+    case "hot":
+      return "Hot Demand";
+    case "surge":
+      return "Surge Demand";
+    default:
+      return "Unknown Demand";
   }
 }
 

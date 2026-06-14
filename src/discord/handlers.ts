@@ -10,14 +10,16 @@ import {
   type InteractionReplyOptions,
   type TextBasedChannel
 } from "discord.js";
-import type { HeistRepository } from "../db/repository.js";
+import type { GuildConfig, HeistRepository } from "../db/repository.js";
 import { nextSeasonModifier, type CrewRole } from "../game/engagement.js";
-import { formatDuration, nowMs } from "../game/time.js";
+import { formatDollars, formatDuration, nowMs } from "../game/time.js";
 import type { ActivityService } from "../services/activity.js";
 import type { BountyService } from "../services/bounties.js";
 import type { CaseService } from "../services/cases.js";
 import type { CrewHeistService } from "../services/crew-heists.js";
 import { containsEmojiOrCustomEmote } from "../services/activity.js";
+import type { CameraService } from "../services/cameras.js";
+import type { DrugService } from "../services/drugs.js";
 import type { EconomyService } from "../services/economy.js";
 import type { GazetteService } from "../services/gazette.js";
 import type { MarketService } from "../services/market.js";
@@ -32,12 +34,21 @@ import {
   bountyListEmbed,
   bountyPlacedEmbed,
   buyEmbed,
+  cameraBillEmbed,
+  cameraFootageEmbed,
+  cameraPowerEmbed,
+  cameraRechargeEmbed,
+  cameraStatusEmbed,
   caseButtons,
   caseMenuEmbed,
   caseResultEmbed,
   crewHeistButtons,
   crewHeistEmbed,
   crewHeistResultEmbed,
+  drugBuyEmbed,
+  drugPricesEmbed,
+  drugSellEmbed,
+  drugStashEmbed,
   gazetteEmbed,
   leaderboardEmbed,
   loadoutEmbed,
@@ -58,8 +69,10 @@ export interface BotServices {
   repo: HeistRepository;
   activity: ActivityService;
   bounties: BountyService;
+  cameras: CameraService;
   cases: CaseService;
   crewHeists: CrewHeistService;
+  drugs: DrugService;
   economy: EconomyService;
   gazette: GazetteService;
   market: MarketService;
@@ -240,6 +253,16 @@ async function handleCommand(
       return;
     }
 
+    case "drug": {
+      await handleDrug(interaction, services, now);
+      return;
+    }
+
+    case "camera": {
+      await handleCamera(interaction, services, now);
+      return;
+    }
+
     case "rob": {
       await handleAttack(interaction, services, "rob", now);
       return;
@@ -360,6 +383,123 @@ async function handleMarket(
       return;
     }
     throw error;
+  }
+}
+
+async function handleDrug(
+  interaction: ChatInputCommandInteraction,
+  services: BotServices,
+  now: number
+): Promise<void> {
+  const guildId = interaction.guildId!;
+  const subcommand = interaction.options.getSubcommand(true);
+
+  switch (subcommand) {
+    case "prices": {
+      await interaction.reply({ embeds: [drugPricesEmbed(services.drugs.prices(guildId, now))], flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    case "stash": {
+      await interaction.reply({
+        embeds: [drugStashEmbed(services.drugs.stash(guildId, interaction.user.id, now))],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    case "buy": {
+      const result = services.drugs.buy(
+        guildId,
+        interaction.user.id,
+        interaction.options.getString("type", true),
+        interaction.options.getInteger("amount", true),
+        now
+      );
+      if (!result.ok) {
+        await interaction.reply({ content: drugBuyFailureText(result.reason), flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await interaction.reply({ embeds: [drugBuyEmbed(result)], flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    case "sell": {
+      const result = services.drugs.sell(
+        guildId,
+        interaction.user.id,
+        interaction.options.getString("type", true),
+        interaction.options.getInteger("amount", true),
+        now
+      );
+      if (!result.ok) {
+        await interaction.reply({ content: drugSellFailureText(result.reason), flags: MessageFlags.Ephemeral });
+        return;
+      }
+      if (result.busted && result.publicBust) {
+        await replyPublic(interaction, { embeds: [drugSellEmbed(result)] });
+        return;
+      }
+      await interaction.reply({ embeds: [drugSellEmbed(result)], flags: MessageFlags.Ephemeral });
+      return;
+    }
+  }
+}
+
+async function handleCamera(
+  interaction: ChatInputCommandInteraction,
+  services: BotServices,
+  now: number
+): Promise<void> {
+  const guildId = interaction.guildId!;
+  const subcommand = interaction.options.getSubcommand(true);
+
+  switch (subcommand) {
+    case "status": {
+      await interaction.reply({
+        embeds: [cameraStatusEmbed(services.cameras.status(guildId, interaction.user.id, now))],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    case "footage": {
+      await interaction.reply({
+        embeds: [cameraFootageEmbed(services.cameras.footage(guildId, interaction.user.id, now))],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    case "power": {
+      const result = services.cameras.setPower(guildId, interaction.user.id, interaction.options.getString("source", true), now);
+      if (!result.ok) {
+        await interaction.reply({ content: cameraFailureText(result.reason), flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await interaction.reply({ embeds: [cameraPowerEmbed(result)], flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    case "recharge": {
+      const result = services.cameras.recharge(guildId, interaction.user.id, interaction.options.getInteger("packs", true), now);
+      if (!result.ok) {
+        await interaction.reply({ content: cameraFailureText(result.reason), flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await interaction.reply({ embeds: [cameraRechargeEmbed(result)], flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    case "bill": {
+      const result = services.cameras.payGridBill(guildId, interaction.user.id, interaction.options.getInteger("days") ?? 1, now);
+      if (!result.ok) {
+        await interaction.reply({ content: cameraFailureText(result.reason), flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await interaction.reply({ embeds: [cameraBillEmbed(result)], flags: MessageFlags.Ephemeral });
+      return;
+    }
   }
 }
 
@@ -603,6 +743,41 @@ async function handleAdmin(
       });
       return;
     }
+
+    case "features": {
+      const feature = interaction.options.getString("feature", true);
+      const enabled = interaction.options.getBoolean("enabled", true);
+      const settings =
+        feature === "drugs"
+          ? { drugsEnabled: enabled }
+          : feature === "cameras"
+            ? { camerasEnabled: enabled }
+            : {};
+      const config = services.repo.updateGuildSettings(guildId, settings, now);
+      await interaction.reply({
+        content: `Features updated. Drug selling is ${config.drugsEnabled ? "enabled" : "disabled"}; cameras are ${
+          config.camerasEnabled ? "enabled" : "disabled"
+        }.`,
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    case "tuning": {
+      const setting = interaction.options.getString("setting", true);
+      const value = interaction.options.getNumber("value", true);
+      const settings = adminTuningUpdate(setting, value);
+      if (!settings) {
+        await interaction.reply({ content: "That tuning key is not recognized.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const config = services.repo.updateGuildSettings(guildId, settings, now);
+      await interaction.reply({
+        content: adminTuningSummary(setting, config),
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
   }
 }
 
@@ -643,7 +818,58 @@ async function handleAdminChannels(
   });
 }
 
-function buyFailureText(reason: "unknown_item" | "already_owned" | "insufficient_wallet"): string {
+function adminTuningUpdate(
+  setting: string,
+  value: number
+): Partial<
+  Pick<
+    GuildConfig,
+    | "drugPriceVolatility"
+    | "publicBustThreshold"
+    | "cameraFootageWindowMs"
+    | "cameraBatteryCost"
+    | "cameraGridRobberyCost"
+    | "cameraGridFullCost"
+  >
+> | null {
+  switch (setting) {
+    case "drug_volatility":
+      return { drugPriceVolatility: value };
+    case "public_bust_threshold":
+      return { publicBustThreshold: Math.floor(value) };
+    case "camera_window_hours":
+      return { cameraFootageWindowMs: Math.floor(value * 60 * 60 * 1000) };
+    case "battery_cost":
+      return { cameraBatteryCost: Math.floor(value) };
+    case "grid_robbery_cost":
+      return { cameraGridRobberyCost: Math.floor(value) };
+    case "grid_full_cost":
+      return { cameraGridFullCost: Math.floor(value) };
+    default:
+      return null;
+  }
+}
+
+function adminTuningSummary(setting: string, config: GuildConfig): string {
+  switch (setting) {
+    case "drug_volatility":
+      return `Drug price volatility set to ${config.drugPriceVolatility}.`;
+    case "public_bust_threshold":
+      return `Public bust threshold set to ${formatDollars(config.publicBustThreshold)}.`;
+    case "camera_window_hours":
+      return `Camera footage window set to ${Math.round(config.cameraFootageWindowMs / (60 * 60 * 1000))} hours.`;
+    case "battery_cost":
+      return `Camera battery pack cost set to ${formatDollars(config.cameraBatteryCost)}.`;
+    case "grid_robbery_cost":
+      return `Robbery-only grid daily cost set to ${formatDollars(config.cameraGridRobberyCost)}.`;
+    case "grid_full_cost":
+      return `Full camera grid daily cost set to ${formatDollars(config.cameraGridFullCost)}.`;
+    default:
+      return "Tuning updated.";
+  }
+}
+
+function buyFailureText(reason: "unknown_item" | "already_owned" | "insufficient_wallet" | "cameras_disabled"): string {
   switch (reason) {
     case "unknown_item":
       return "That item is not in the catalog.";
@@ -651,6 +877,55 @@ function buyFailureText(reason: "unknown_item" | "already_owned" | "insufficient
       return "You already own that item this season.";
     case "insufficient_wallet":
       return "Your wallet is short for that security buy.";
+    case "cameras_disabled":
+      return "Cameras are disabled by an admin.";
+  }
+}
+
+function drugBuyFailureText(reason: "disabled" | "unknown_product" | "invalid_amount" | "insufficient_wallet"): string {
+  switch (reason) {
+    case "disabled":
+      return "Drug selling is disabled by an admin.";
+    case "unknown_product":
+      return "That product is not on the street sheet.";
+    case "invalid_amount":
+      return "Use a positive unit amount.";
+    case "insufficient_wallet":
+      return "Your wallet is short for that supply buy.";
+  }
+}
+
+function drugSellFailureText(
+  reason: "disabled" | "unknown_product" | "invalid_amount" | "missing_stash" | "insufficient_stash"
+): string {
+  switch (reason) {
+    case "disabled":
+      return "Drug selling is disabled by an admin.";
+    case "unknown_product":
+      return "That product is not on the street sheet.";
+    case "invalid_amount":
+      return "Use a positive unit amount.";
+    case "missing_stash":
+      return "You do not have that product in your stash.";
+    case "insufficient_stash":
+      return "Your stash does not have that many units.";
+  }
+}
+
+function cameraFailureText(
+  reason: "disabled" | "not_installed" | "invalid_source" | "invalid_amount" | "insufficient_wallet"
+): string {
+  switch (reason) {
+    case "disabled":
+      return "Cameras are disabled by an admin.";
+    case "not_installed":
+      return "Install a surveillance item with `/buy item` first.";
+    case "invalid_source":
+      return "Use battery or grid as the camera power source.";
+    case "invalid_amount":
+      return "Use a positive amount.";
+    case "insufficient_wallet":
+      return "Your wallet is short for that camera cost.";
   }
 }
 
