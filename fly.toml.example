@@ -9,7 +9,7 @@ primary_region = "iad"
   DATABASE_PATH = "/data/heist-bank.sqlite"
 
 [processes]
-  app = "npm run start:prod"
+  app = "pnpm start:prod"
 
 [[mounts]]
   source = "data"

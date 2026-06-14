@@ -20,13 +20,20 @@ The engagement layer keeps the game active without increasing bot spam:
 - Seasons can carry modifiers, awards, and history.
 - The Vault Gazette posts a periodic digest instead of lots of individual announcements.
 
+Planned next work lives in `ROADMAP.md` and is not implemented yet:
+
+- Drug selling and contraband inventory.
+- Powered cameras and private footage.
+- Surveillance shop items.
+- Admin tuning for drugs, cameras, and public bust thresholds.
+
 ## Setup
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env
-npm run register
-npm run start
+pnpm register
+pnpm start
 ```
 
 Use `DISCORD_GUILD_ID` while testing to register slash commands instantly in one server. Without it, commands are registered globally and can take time to appear.
@@ -73,7 +80,7 @@ fly deploy --app "$APP_NAME" --remote-only
 fly logs --app "$APP_NAME"
 ```
 
-Production startup runs slash-command registration before the bot logs in. This bot is a background worker, not an HTTP service. If Fly's dashboard asks for a start command, use `npm run start:prod`. Do not configure an HTTP service or health check on port `8080`.
+Production startup runs slash-command registration before the bot logs in. This bot is a background worker, not an HTTP service. If Fly's dashboard asks for a start command, use `pnpm start:prod`. Do not configure an HTTP service or health check on port `8080`.
 
 ## Deploy to Railway
 
@@ -91,7 +98,7 @@ DATABASE_PATH=/data/heist-bank.sqlite
 
 `DISCORD_GUILD_ID` is optional after testing. `ALPHA_VANTAGE_API_KEY` is only needed for `/market` commands. Do not generate a public domain or configure a healthcheck; this is a long-running Discord bot, not an HTTP service.
 
-Railway uses the Dockerfile `CMD`, which runs `npm run start:prod`. Production startup registers slash commands first, then launches the Discord worker.
+Railway uses the Dockerfile `CMD`, which runs `pnpm start:prod`. Production startup registers slash commands first, then launches the Discord worker.
 
 ## GitHub CI and Fly Deploys
 

@@ -34,9 +34,14 @@ export const commandBuilders = [
     .addStringOption((option) =>
       option
         .setName("item")
-        .setDescription("Security item.")
+        .setDescription("Security item. Each choice shows the cost and what it does.")
         .setRequired(true)
-        .addChoices(...SECURITY_ITEMS.map((item) => ({ name: `${item.name} - $${item.cost}`, value: item.id })))
+        .addChoices(
+          ...SECURITY_ITEMS.map((item) => ({
+            name: `${item.name} ($${item.cost}): ${item.buyMenuEffect}`,
+            value: item.id
+          }))
+        )
     ),
 
   new SlashCommandBuilder().setName("loadout").setDescription("Inspect your active security loadout."),

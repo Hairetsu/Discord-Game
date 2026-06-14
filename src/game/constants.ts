@@ -59,6 +59,7 @@ export interface SecurityItem {
   slot: SecuritySlot;
   tier: number;
   cost: number;
+  buyMenuEffect: string;
   description: string;
   vaultPenalty?: number;
   alarmFineBonus?: number;
@@ -71,86 +72,95 @@ export interface SecurityItem {
 export const SECURITY_ITEMS: SecurityItem[] = [
   {
     id: "vault_i",
-    name: "Brass Vault I",
+    name: "Pawnshop Deadbolt",
     slot: "vault",
     tier: 1,
     cost: 400,
-    description: "Cuts incoming rob and heist success odds by 5%.",
+    buyMenuEffect: "Lowers rob/heist odds by 5 pts.",
+    description: "Cuts incoming rob and heist success odds by 5 percentage points.",
     vaultPenalty: 0.05
   },
   {
     id: "vault_ii",
-    name: "Brass Vault II",
+    name: "False-Wall Safe",
     slot: "vault",
     tier: 2,
     cost: 1200,
-    description: "Cuts incoming rob and heist success odds by 10%.",
+    buyMenuEffect: "Lowers rob/heist odds by 10 pts.",
+    description: "Cuts incoming rob and heist success odds by 10 percentage points.",
     vaultPenalty: 0.1
   },
   {
     id: "vault_iii",
-    name: "Brass Vault III",
+    name: "Concrete Panic Room",
     slot: "vault",
     tier: 3,
     cost: 3000,
-    description: "Cuts incoming rob and heist success odds by 18%.",
+    buyMenuEffect: "Lowers rob/heist odds by 18 pts.",
+    description: "Cuts incoming rob and heist success odds by 18 percentage points.",
     vaultPenalty: 0.18
   },
   {
     id: "alarm_i",
-    name: "Tripwire Alarm I",
+    name: "Bottlecap Tripline",
     slot: "alarm",
     tier: 1,
     cost: 350,
-    description: "Failed attackers pay 10% more in fines.",
+    buyMenuEffect: "Failed attackers pay 10% more fines.",
+    description: "Makes failed attackers pay 10% more in fines.",
     alarmFineBonus: 0.1
   },
   {
     id: "alarm_ii",
-    name: "Tripwire Alarm II",
+    name: "Switchboard Siren",
     slot: "alarm",
     tier: 2,
     cost: 1000,
-    description: "Failed attackers pay 20% more in fines.",
+    buyMenuEffect: "Failed attackers pay 20% more fines.",
+    description: "Makes failed attackers pay 20% more in fines.",
     alarmFineBonus: 0.2
   },
   {
     id: "guard_i",
-    name: "Backroom Guard I",
+    name: "Pool-Hall Spotter",
     slot: "guard",
     tier: 1,
     cost: 500,
-    description: "On failed attacks, counter-steals up to 5% of the attacker wallet, max $150.",
+    buyMenuEffect: "Failed attacks steal back 5%, max $150.",
+    description: "On failed attacks, steals back up to 5% of the attacker wallet, capped at $150.",
     guardCounterPercent: 0.05,
     guardCounterMax: 150
   },
   {
     id: "guard_ii",
-    name: "Backroom Guard II",
+    name: "Elevator Muscle",
     slot: "guard",
     tier: 2,
     cost: 1500,
-    description: "On failed attacks, counter-steals up to 10% of the attacker wallet, max $400.",
+    buyMenuEffect: "Failed attacks steal back 10%, max $400.",
+    description: "On failed attacks, steals back up to 10% of the attacker wallet, capped at $400.",
     guardCounterPercent: 0.1,
     guardCounterMax: 400
   },
   {
     id: "insurance_i",
-    name: "Ledger Insurance I",
+    name: "Rainy-Day Ledger",
     slot: "insurance",
     tier: 1,
     cost: 600,
-    description: "Restores 10% of bank losses after a successful heist, max $250.",
+    buyMenuEffect: "Heists restore 10% bank loss, max $250.",
+    description: "After successful heists, restores 10% of the bank loss, capped at $250.",
     insuranceRestorePercent: 0.1,
     insuranceRestoreMax: 250
   },
   {
     id: "insurance_ii",
-    name: "Ledger Insurance II",
+    name: "Offshore Claim Desk",
     slot: "insurance",
     tier: 2,
     cost: 1800,
-    description: "Restores 20% of bank losses after a successful heist, max $750.",
+    buyMenuEffect: "Heists restore 20% bank loss, max $750.",
+    description: "After successful heists, restores 20% of the bank loss, capped at $750.",
     insuranceRestorePercent: 0.2,
     insuranceRestoreMax: 750
   }
