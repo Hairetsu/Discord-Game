@@ -6,14 +6,17 @@ Make the bot feel like a living Discord crime economy without increasing noise. 
 
 Guiding rule: ephemeral by default, public only when another player can react to it.
 
-## Not Done Yet
+## Implementation Status
 
-The first engagement pass is already implemented. This roadmap only tracks the next unfinished expansion:
+The street supply and surveillance expansion is implemented in slices:
 
-- Drug selling and contraband inventory.
-- Powered cameras and private footage.
-- Surveillance shop items.
-- Admin tuning for drugs, cameras, and public bust thresholds.
+- Slice 1: schema and repository support for settings, contraband, cameras, and recordings.
+- Slice 2: `/drug` market, stash, buy, sell, heat, busts, and transaction logging.
+- Slice 3: surveillance shop items and camera installation through `/buy item`.
+- Slice 4: `/camera` status, footage, battery recharge, grid billing, and power switching.
+- Slice 5: robbery/heist integration that records powered footage for eligible cameras.
+- Slice 6: `/admin features` and `/admin tuning` controls.
+- Slice 7: focused tests for migrations, drugs, and cameras.
 
 Keep the same product rule as the engagement pass: private by default, public only when another player can react.
 

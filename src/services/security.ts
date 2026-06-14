@@ -5,7 +5,7 @@ export type BuyResult =
   | { ok: true; player: PlayerRecord; item: SecurityItem }
   | {
       ok: false;
-      reason: "unknown_item" | "already_owned" | "insufficient_wallet";
+      reason: "unknown_item" | "already_owned" | "insufficient_wallet" | "cameras_disabled";
       player?: PlayerRecord;
       item?: SecurityItem;
     };
@@ -38,7 +38,11 @@ export class SecurityService {
         return { ok: false, reason: "unknown_item" };
       }
 
+      const config = this.repo.ensureGuild(guildId, now);
       const player = this.repo.ensurePlayer(guildId, userId, now);
+      if (item.cameraTier && !config.camerasEnabled) {
+        return { ok: false, reason: "cameras_disabled", player, item };
+      }
       if (this.repo.getInventoryQuantity(guildId, userId, player.seasonId, item.id) > 0) {
         return { ok: false, reason: "already_owned", player, item };
       }
@@ -49,11 +53,14 @@ export class SecurityService {
       player.wallet -= item.cost;
       this.repo.savePlayer(player, now);
       this.repo.addInventoryAndEquip(guildId, userId, player.seasonId, item);
+      if (item.cameraTier) {
+        this.repo.upsertCameraSystem(guildId, userId, player.seasonId, item.cameraTier, now);
+      }
       this.repo.recordTransaction({
         guildId,
         userId,
         seasonId: player.seasonId,
-        type: "security_purchase",
+        type: item.cameraTier ? "camera_purchase" : "security_purchase",
         amount: -item.cost,
         metadata: { itemId: item.id, slot: item.slot },
         createdAt: now

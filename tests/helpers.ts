@@ -4,8 +4,10 @@ import type { RandomSource } from "../src/game/random.js";
 import { SequenceRandomSource } from "../src/game/random.js";
 import { ActivityService } from "../src/services/activity.js";
 import { BountyService } from "../src/services/bounties.js";
+import { CameraService } from "../src/services/cameras.js";
 import { CaseService } from "../src/services/cases.js";
 import { CrewHeistService } from "../src/services/crew-heists.js";
+import { DrugService } from "../src/services/drugs.js";
 import { DropService } from "../src/services/drops.js";
 import { EconomyService } from "../src/services/economy.js";
 import { GazetteService } from "../src/services/gazette.js";
@@ -14,17 +16,20 @@ import { SecurityService } from "../src/services/security.js";
 
 export function createTestServices(random: RandomSource = new SequenceRandomSource([0.5])) {
   const repo = new HeistRepository(openDatabase(":memory:"));
+  const cameras = new CameraService(repo);
   return {
     repo,
     activity: new ActivityService(repo, random),
     bounties: new BountyService(repo),
+    cameras,
     cases: new CaseService(repo, random),
     crewHeists: new CrewHeistService(repo, random),
+    drugs: new DrugService(repo, random),
     economy: new EconomyService(repo),
     gazette: new GazetteService(repo),
     security: new SecurityService(repo),
     drops: new DropService(repo, random),
-    robbery: new RobberyService(repo, random)
+    robbery: new RobberyService(repo, random, cameras)
   };
 }
 

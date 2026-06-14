@@ -1,5 +1,14 @@
 import type { SqliteDatabase } from "./database.js";
-import { STARTING_WALLET, NEW_PLAYER_SHIELD_MS, SECURITY_BY_ID, type SecurityItem } from "../game/constants.js";
+import {
+  STARTING_WALLET,
+  NEW_PLAYER_SHIELD_MS,
+  SECURITY_BY_ID,
+  type CameraAttackType,
+  type CameraPowerSource,
+  type CameraTier,
+  type ContrabandDemandBand,
+  type SecurityItem
+} from "../game/constants.js";
 import type { CrewRole, DropKind, SeasonModifierId } from "../game/engagement.js";
 
 export interface GuildConfig {
@@ -10,6 +19,14 @@ export interface GuildConfig {
   nextDropAt: number | null;
   lastInterestAt: number | null;
   lastGazetteAt: number | null;
+  drugsEnabled: boolean;
+  camerasEnabled: boolean;
+  drugPriceVolatility: number;
+  publicBustThreshold: number;
+  cameraFootageWindowMs: number;
+  cameraBatteryCost: number;
+  cameraGridRobberyCost: number;
+  cameraGridFullCost: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -132,6 +149,55 @@ export interface TransactionRecord {
   createdAt: number;
 }
 
+export interface ContrabandInventoryRecord {
+  guildId: string;
+  userId: string;
+  seasonId: number;
+  productId: string;
+  quantity: number;
+  averageCost: number;
+  updatedAt: number;
+}
+
+export interface ContrabandMarketRecord {
+  guildId: string;
+  seasonId: number;
+  productId: string;
+  demandBand: ContrabandDemandBand;
+  buyPrice: number;
+  sellPrice: number;
+  expiresAt: number;
+  updatedAt: number;
+}
+
+export interface CameraSystemRecord {
+  guildId: string;
+  userId: string;
+  seasonId: number;
+  tier: CameraTier;
+  powerSource: CameraPowerSource;
+  batteryUnits: number;
+  batteryExpiresAt: number;
+  gridPaidUntil: number;
+  enabled: boolean;
+  updatedAt: number;
+}
+
+export interface CameraRecordingRecord {
+  id: number;
+  guildId: string;
+  userId: string;
+  seasonId: number;
+  attackerUserId: string;
+  attackType: CameraAttackType;
+  success: boolean;
+  stolenAmount: number;
+  insuranceRestore: number;
+  powerSource: CameraPowerSource;
+  recordedAt: number;
+  expiresAt: number;
+}
+
 interface GuildConfigRow {
   guild_id: string;
   current_season_id: number;
@@ -140,6 +206,14 @@ interface GuildConfigRow {
   next_drop_at: number | null;
   last_interest_at: number | null;
   last_gazette_at: number | null;
+  drugs_enabled: number;
+  cameras_enabled: number;
+  drug_price_volatility: number;
+  public_bust_threshold: number;
+  camera_footage_window_ms: number;
+  camera_battery_cost: number;
+  camera_grid_robbery_cost: number;
+  camera_grid_full_cost: number;
   created_at: number;
   updated_at: number;
 }
@@ -253,6 +327,55 @@ interface TransactionRow {
   created_at: number;
 }
 
+interface ContrabandInventoryRow {
+  guild_id: string;
+  user_id: string;
+  season_id: number;
+  product_id: string;
+  quantity: number;
+  average_cost: number;
+  updated_at: number;
+}
+
+interface ContrabandMarketRow {
+  guild_id: string;
+  season_id: number;
+  product_id: string;
+  demand_band: ContrabandDemandBand;
+  buy_price: number;
+  sell_price: number;
+  expires_at: number;
+  updated_at: number;
+}
+
+interface CameraSystemRow {
+  guild_id: string;
+  user_id: string;
+  season_id: number;
+  tier: CameraTier;
+  power_source: CameraPowerSource;
+  battery_units: number;
+  battery_expires_at: number;
+  grid_paid_until: number;
+  enabled: number;
+  updated_at: number;
+}
+
+interface CameraRecordingRow {
+  id: number;
+  guild_id: string;
+  user_id: string;
+  season_id: number;
+  attacker_user_id: string;
+  attack_type: CameraAttackType;
+  success: number;
+  stolen_amount: number;
+  insurance_restore: number;
+  power_source: CameraPowerSource;
+  recorded_at: number;
+  expires_at: number;
+}
+
 export interface TransactionInput {
   guildId: string;
   userId: string;
@@ -328,6 +451,14 @@ function mapGuild(row: GuildConfigRow): GuildConfig {
     nextDropAt: row.next_drop_at,
     lastInterestAt: row.last_interest_at,
     lastGazetteAt: row.last_gazette_at,
+    drugsEnabled: row.drugs_enabled === 1,
+    camerasEnabled: row.cameras_enabled === 1,
+    drugPriceVolatility: row.drug_price_volatility,
+    publicBustThreshold: row.public_bust_threshold,
+    cameraFootageWindowMs: row.camera_footage_window_ms,
+    cameraBatteryCost: row.camera_battery_cost,
+    cameraGridRobberyCost: row.camera_grid_robbery_cost,
+    cameraGridFullCost: row.camera_grid_full_cost,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -460,6 +591,63 @@ function mapTransaction(row: TransactionRow): TransactionRecord {
   };
 }
 
+function mapContrabandInventory(row: ContrabandInventoryRow): ContrabandInventoryRecord {
+  return {
+    guildId: row.guild_id,
+    userId: row.user_id,
+    seasonId: row.season_id,
+    productId: row.product_id,
+    quantity: row.quantity,
+    averageCost: row.average_cost,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapContrabandMarket(row: ContrabandMarketRow): ContrabandMarketRecord {
+  return {
+    guildId: row.guild_id,
+    seasonId: row.season_id,
+    productId: row.product_id,
+    demandBand: row.demand_band,
+    buyPrice: row.buy_price,
+    sellPrice: row.sell_price,
+    expiresAt: row.expires_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapCameraSystem(row: CameraSystemRow): CameraSystemRecord {
+  return {
+    guildId: row.guild_id,
+    userId: row.user_id,
+    seasonId: row.season_id,
+    tier: row.tier,
+    powerSource: row.power_source,
+    batteryUnits: row.battery_units,
+    batteryExpiresAt: row.battery_expires_at,
+    gridPaidUntil: row.grid_paid_until,
+    enabled: row.enabled === 1,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapCameraRecording(row: CameraRecordingRow): CameraRecordingRecord {
+  return {
+    id: row.id,
+    guildId: row.guild_id,
+    userId: row.user_id,
+    seasonId: row.season_id,
+    attackerUserId: row.attacker_user_id,
+    attackType: row.attack_type,
+    success: row.success === 1,
+    stolenAmount: row.stolen_amount,
+    insuranceRestore: row.insurance_restore,
+    powerSource: row.power_source,
+    recordedAt: row.recorded_at,
+    expiresAt: row.expires_at
+  };
+}
+
 function mapStockHolding(row: StockHoldingRow): StockHoldingRecord {
   return {
     guildId: row.guild_id,
@@ -585,6 +773,52 @@ export class HeistRepository {
     this.db
       .prepare("UPDATE guild_configs SET last_gazette_at = ?, updated_at = ? WHERE guild_id = ?")
       .run(lastGazetteAt, now, guildId);
+  }
+
+  updateGuildSettings(
+    guildId: string,
+    settings: Partial<
+      Pick<
+        GuildConfig,
+        | "drugsEnabled"
+        | "camerasEnabled"
+        | "drugPriceVolatility"
+        | "publicBustThreshold"
+        | "cameraFootageWindowMs"
+        | "cameraBatteryCost"
+        | "cameraGridRobberyCost"
+        | "cameraGridFullCost"
+      >
+    >,
+    now: number
+  ): GuildConfig {
+    this.ensureGuild(guildId, now);
+    const updates: string[] = [];
+    const values: Array<number> = [];
+    const setNumber = (column: string, value: number | undefined) => {
+      if (value === undefined) {
+        return;
+      }
+      updates.push(`${column} = ?`);
+      values.push(value);
+    };
+
+    setNumber("drugs_enabled", settings.drugsEnabled === undefined ? undefined : settings.drugsEnabled ? 1 : 0);
+    setNumber("cameras_enabled", settings.camerasEnabled === undefined ? undefined : settings.camerasEnabled ? 1 : 0);
+    setNumber("drug_price_volatility", settings.drugPriceVolatility);
+    setNumber("public_bust_threshold", settings.publicBustThreshold);
+    setNumber("camera_footage_window_ms", settings.cameraFootageWindowMs);
+    setNumber("camera_battery_cost", settings.cameraBatteryCost);
+    setNumber("camera_grid_robbery_cost", settings.cameraGridRobberyCost);
+    setNumber("camera_grid_full_cost", settings.cameraGridFullCost);
+
+    if (updates.length > 0) {
+      this.db
+        .prepare(`UPDATE guild_configs SET ${updates.join(", ")}, updated_at = ? WHERE guild_id = ?`)
+        .run(...values, now, guildId);
+    }
+
+    return this.ensureGuild(guildId, now);
   }
 
   startNextSeason(
@@ -1139,6 +1373,222 @@ export class HeistRepository {
     return rows
       .map((row) => SECURITY_BY_ID.get(row.item_id))
       .filter((item): item is SecurityItem => Boolean(item));
+  }
+
+  getContrabandInventory(
+    guildId: string,
+    userId: string,
+    seasonId: number,
+    productId: string
+  ): ContrabandInventoryRecord | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT *
+         FROM contraband_inventory
+         WHERE guild_id = ? AND user_id = ? AND season_id = ? AND product_id = ?`
+      )
+      .get(guildId, userId, seasonId, productId) as ContrabandInventoryRow | undefined;
+    return row ? mapContrabandInventory(row) : undefined;
+  }
+
+  listContrabandInventory(guildId: string, userId: string, seasonId: number): ContrabandInventoryRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT *
+           FROM contraband_inventory
+           WHERE guild_id = ? AND user_id = ? AND season_id = ? AND quantity > 0
+           ORDER BY product_id ASC`
+        )
+        .all(guildId, userId, seasonId) as ContrabandInventoryRow[]
+    ).map(mapContrabandInventory);
+  }
+
+  saveContrabandInventory(record: ContrabandInventoryRecord, now: number): void {
+    if (record.quantity <= 0) {
+      this.db
+        .prepare(
+          `DELETE FROM contraband_inventory
+           WHERE guild_id = ? AND user_id = ? AND season_id = ? AND product_id = ?`
+        )
+        .run(record.guildId, record.userId, record.seasonId, record.productId);
+      return;
+    }
+
+    this.db
+      .prepare(
+        `INSERT INTO contraband_inventory
+          (guild_id, user_id, season_id, product_id, quantity, average_cost, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(guild_id, user_id, season_id, product_id)
+         DO UPDATE SET
+           quantity = excluded.quantity,
+           average_cost = excluded.average_cost,
+           updated_at = excluded.updated_at`
+      )
+      .run(
+        record.guildId,
+        record.userId,
+        record.seasonId,
+        record.productId,
+        record.quantity,
+        record.averageCost,
+        now
+      );
+  }
+
+  getContrabandMarket(guildId: string, seasonId: number, productId: string): ContrabandMarketRecord | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT *
+         FROM contraband_market
+         WHERE guild_id = ? AND season_id = ? AND product_id = ?`
+      )
+      .get(guildId, seasonId, productId) as ContrabandMarketRow | undefined;
+    return row ? mapContrabandMarket(row) : undefined;
+  }
+
+  listContrabandMarket(guildId: string, seasonId: number): ContrabandMarketRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT *
+           FROM contraband_market
+           WHERE guild_id = ? AND season_id = ?
+           ORDER BY product_id ASC`
+        )
+        .all(guildId, seasonId) as ContrabandMarketRow[]
+    ).map(mapContrabandMarket);
+  }
+
+  saveContrabandMarket(record: ContrabandMarketRecord, now: number): void {
+    this.db
+      .prepare(
+        `INSERT INTO contraband_market
+          (guild_id, season_id, product_id, demand_band, buy_price, sell_price, expires_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(guild_id, season_id, product_id)
+         DO UPDATE SET
+           demand_band = excluded.demand_band,
+           buy_price = excluded.buy_price,
+           sell_price = excluded.sell_price,
+           expires_at = excluded.expires_at,
+           updated_at = excluded.updated_at`
+      )
+      .run(
+        record.guildId,
+        record.seasonId,
+        record.productId,
+        record.demandBand,
+        record.buyPrice,
+        record.sellPrice,
+        record.expiresAt,
+        now
+      );
+  }
+
+  getCameraSystem(guildId: string, userId: string, seasonId: number): CameraSystemRecord | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT *
+         FROM camera_systems
+         WHERE guild_id = ? AND user_id = ? AND season_id = ?`
+      )
+      .get(guildId, userId, seasonId) as CameraSystemRow | undefined;
+    return row ? mapCameraSystem(row) : undefined;
+  }
+
+  upsertCameraSystem(guildId: string, userId: string, seasonId: number, tier: CameraTier, now: number): CameraSystemRecord {
+    this.db
+      .prepare(
+        `INSERT INTO camera_systems
+          (guild_id, user_id, season_id, tier, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(guild_id, user_id, season_id)
+         DO UPDATE SET tier = excluded.tier, enabled = 1, updated_at = excluded.updated_at`
+      )
+      .run(guildId, userId, seasonId, tier, now);
+
+    const system = this.getCameraSystem(guildId, userId, seasonId);
+    if (!system) {
+      throw new Error("Failed to save camera system");
+    }
+    return system;
+  }
+
+  saveCameraSystem(system: CameraSystemRecord, now: number): void {
+    this.db
+      .prepare(
+        `INSERT INTO camera_systems
+          (guild_id, user_id, season_id, tier, power_source, battery_units, battery_expires_at,
+           grid_paid_until, enabled, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(guild_id, user_id, season_id)
+         DO UPDATE SET
+           tier = excluded.tier,
+           power_source = excluded.power_source,
+           battery_units = excluded.battery_units,
+           battery_expires_at = excluded.battery_expires_at,
+           grid_paid_until = excluded.grid_paid_until,
+           enabled = excluded.enabled,
+           updated_at = excluded.updated_at`
+      )
+      .run(
+        system.guildId,
+        system.userId,
+        system.seasonId,
+        system.tier,
+        system.powerSource,
+        system.batteryUnits,
+        system.batteryExpiresAt,
+        system.gridPaidUntil,
+        system.enabled ? 1 : 0,
+        now
+      );
+  }
+
+  insertCameraRecording(input: Omit<CameraRecordingRecord, "id">): CameraRecordingRecord {
+    const result = this.db
+      .prepare(
+        `INSERT INTO camera_recordings
+          (guild_id, user_id, season_id, attacker_user_id, attack_type, success, stolen_amount,
+           insurance_restore, power_source, recorded_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        input.guildId,
+        input.userId,
+        input.seasonId,
+        input.attackerUserId,
+        input.attackType,
+        input.success ? 1 : 0,
+        input.stolenAmount,
+        input.insuranceRestore,
+        input.powerSource,
+        input.recordedAt,
+        input.expiresAt
+      );
+    const row = this.db
+      .prepare("SELECT * FROM camera_recordings WHERE id = ?")
+      .get(Number(result.lastInsertRowid)) as CameraRecordingRow | undefined;
+    if (!row) {
+      throw new Error("Failed to insert camera recording");
+    }
+    return mapCameraRecording(row);
+  }
+
+  listCameraRecordings(guildId: string, userId: string, seasonId: number, now: number, limit = 25): CameraRecordingRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT *
+           FROM camera_recordings
+           WHERE guild_id = ? AND user_id = ? AND season_id = ? AND expires_at > ?
+           ORDER BY recorded_at DESC
+           LIMIT ?`
+        )
+        .all(guildId, userId, seasonId, now, limit) as CameraRecordingRow[]
+    ).map(mapCameraRecording);
   }
 
   getStockHolding(guildId: string, userId: string, seasonId: number, symbol: string): StockHoldingRecord | undefined {

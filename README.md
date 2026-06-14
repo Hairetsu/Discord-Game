@@ -20,12 +20,12 @@ The engagement layer keeps the game active without increasing bot spam:
 - Seasons can carry modifiers, awards, and history.
 - The Vault Gazette posts a periodic digest instead of lots of individual announcements.
 
-Planned next work lives in `ROADMAP.md` and is not implemented yet:
+The street supply and surveillance layer adds higher-risk ways to play:
 
-- Drug selling and contraband inventory.
-- Powered cameras and private footage.
-- Surveillance shop items.
-- Admin tuning for drugs, cameras, and public bust thresholds.
+- `/drug` lets players buy contraband, sell into rotating demand, build heat, and risk busts.
+- Surveillance items in `/buy item` install cameras with descriptions directly in the buy menu.
+- `/camera` manages battery packs, grid billing, and private footage from powered recordings.
+- Admins can enable or disable drugs/cameras and tune price volatility, public bust thresholds, footage windows, and power costs.
 
 ## Setup
 
@@ -130,6 +130,15 @@ fly secrets set --app "$APP_NAME" ALPHA_VANTAGE_API_KEY="your-alpha-vantage-key"
 - `/shop`
 - `/buy item`
 - `/loadout`
+- `/drug prices`
+- `/drug stash`
+- `/drug buy type amount`
+- `/drug sell type amount`
+- `/camera status`
+- `/camera footage`
+- `/camera power source`
+- `/camera recharge packs`
+- `/camera bill days`
 - `/rob target`
 - `/heist target`
 - `/crewheist target`
@@ -148,3 +157,5 @@ fly secrets set --app "$APP_NAME" ALPHA_VANTAGE_API_KEY="your-alpha-vantage-key"
 - `/admin channels action channel`
 - `/admin drop`
 - `/admin season action`
+- `/admin features feature enabled`
+- `/admin tuning setting value`
