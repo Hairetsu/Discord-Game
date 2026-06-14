@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "A seasonal Discord heist economy bot with money drops, banking interest, security loadouts, and capped robberies.",
+  "packageManager": "pnpm@8.15.9",
   "scripts": {
     "build": "tsc -p tsconfig.build.json && mkdir -p dist/db/migrations && cp src/db/migrations/*.sql dist/db/migrations/",
     "dev": "tsx watch src/index.ts",
